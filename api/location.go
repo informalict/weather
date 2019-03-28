@@ -6,18 +6,13 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/go-pg/pg"
-	"strconv"
-
-	//"github.com/go-pg/pg/orm"
 	"github.com/google/logger"
-	//_ "github.com/lib/pq"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strconv"
+	"time"
 )
-
-type WeatherLocation struct {
-	client http.Client
-}
 
 type Location struct {
 	CityName    string  `json:"city_name" description:"name of the city"`
@@ -25,37 +20,54 @@ type Location struct {
 	LocationId  int     `json:"location_id" description:"identifier of the location in open weather map service"`
 	Latitude    float32 `json:"latitude" description:"name of the city"`
 	Longitude   float32 `json:"longitude" description:"name of the city"`
+	client      http.Client
+	db          DatabaseLocation
+	config      struct {
+		database          *pg.Options
+		openWeatherMapUrl string
+	}
 }
 
 type OpenMapWeather struct {
-	Coord OpenMapWeatherCoordinates `json:"coord"`
-	Name  string                    `json:"name"`
-	Id    int                       `json:"id"`
-	Sys   OpenMapWeatherSys         `json:sys`
-}
-
-type OpenMapWeatherCoordinates struct {
-	Latitude  float32 `json:"lat"`
-	Longitude float32 `json:"lon"`
-}
-
-type OpenMapWeatherSys struct {
-	Country string `json:"country"`
+	Coord struct {
+		Latitude  float32 `json:"lat"`
+		Longitude float32 `json:"lon"`
+	} `json:"coord"`
+	Name string `json:"name"`
+	Id   int    `json:"id"`
+	Sys  struct {
+		Country string `json:"country"`
+	} `json:sys`
 }
 
 const (
 	weatherApiUrl     = "http://api.openweathermap.org/data"
 	weatherApiVersion = "2.5"
-	weatherApiToken   = "d7bf62922891f21c84174792d611c5fc"
 )
 
-func NewWeatherWebService(client http.Client) *WeatherLocation {
-	return &WeatherLocation{
-		client: client,
+func NewLocation(dl DatabaseLocation) *Location {
+	return &Location{
+		client: http.Client{ //TODO should i chnge that
+			Timeout: time.Duration(3 * time.Second),
+		},
+		db: dl,
+		config: struct {
+			database          *pg.Options
+			openWeatherMapUrl string
+		}{
+			database: &pg.Options{
+				User:     os.Getenv("DB_USER"),     //"postgres",       //todo env
+				Database: os.Getenv("DB_DATABASE"), //"weather",            //todo env
+				Password: os.Getenv("DB_PASSWORD"), //"postgres",               //todo env
+				Addr:     os.Getenv("DB_ADDRESS"),  //"localhost:5432",         //todo env
+			},
+			openWeatherMapUrl: fmt.Sprintf("%s/%s/weather?appid=%s",
+				weatherApiUrl, weatherApiVersion, os.Getenv("OPEN_WEATHER_MAP_TOKEN")),
+		},
 	}
 }
 
-func (l *WeatherLocation) WebService() *restful.WebService {
+func (l *Location) WebService() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/locations").
 		Consumes(restful.MIME_JSON).
@@ -90,42 +102,42 @@ func (l *WeatherLocation) WebService() *restful.WebService {
 		Param(ws.PathParameter("location_id", "identifier of the location").DataType("integer")).
 		Returns(http.StatusOK, "OK", nil).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
-		Returns(http.StatusInternalServerError, "database does not work properly", nil)))
+		Returns(http.StatusInternalServerError, "database does not work properly", nil))
 
 	return ws
 }
 
-func (l *WeatherLocation) getLocation(request *restful.Request, response *restful.Response) {
-	locationId, err := strconv.Atoi(request.PathParameter("location_id"))
+func (l *Location) getLocation(request *restful.Request, response *restful.Response) {
+	var err error
+
+	l.LocationId, err = strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get location: ", err)
 		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
 		return
 	}
 
-	location, err := l.getDBLocation(locationId)
+	loc, err := l.db.getDBLocation(l.LocationId)
 	if err != nil {
 		logger.Error("Get location: ", err)
 		response.WriteErrorString(http.StatusInternalServerError, "Service is unavailable")
 		return
 	}
 
-	response.WriteEntity(location)
+	response.WriteEntity(loc)
 }
 
-//curl -vvv -X PUT -H "content-type: application/json" --data '{"city_name": "Warsaw", "country_code": "PL"}' localhost:8080/locations
-func (l *WeatherLocation) createLocation(request *restful.Request, response *restful.Response) {
-	location := Location{}
+func (l *Location) createLocation(request *restful.Request, response *restful.Response) {
 	// TODO validate (regex)?
 	// TODO check if location exists in database and if so return an error
-	err := request.ReadEntity(&location)
+	err := request.ReadEntity(l)
 	if err != nil {
 		logger.Error("Create location: ", err)
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
-	resp, err := l.client.Get(l.buildWeatherEndpoint1(location.CityName, location.CountryCode))
+	resp, err := l.client.Get(l.buildLocationEndpoint())
 	if err != nil {
 		logger.Error("Create location: ", err)
 		//TODO which status to result?
@@ -142,24 +154,24 @@ func (l *WeatherLocation) createLocation(request *restful.Request, response *res
 		return
 	}
 
-	location.CityName = result.Name
-	location.LocationId = result.Id
-	location.CountryCode = result.Sys.Country
-	location.Latitude = result.Coord.Latitude
-	location.Longitude = result.Coord.Longitude
+	l.CityName = result.Name
+	l.LocationId = result.Id
+	l.CountryCode = result.Sys.Country
+	l.Latitude = result.Coord.Latitude
+	l.Longitude = result.Coord.Longitude
 
-	err = l.saveDBLocation(location)
+	err = l.saveDBLocation()
 	if err != nil {
 		logger.Error("Create location: ", err)
 		// TODO StatusConflict if exists record
-		response.WriteHeaderAndEntity(http.StatusInternalServerError, location)
+		response.WriteHeaderAndEntity(http.StatusInternalServerError, l)
 		return
 	}
 
-	response.WriteHeaderAndEntity(http.StatusCreated, location)
+	response.WriteHeaderAndEntity(http.StatusCreated, l)
 }
 
-func (l *WeatherLocation) getLocations(request *restful.Request, response *restful.Response) {
+func (l *Location) getLocations(request *restful.Request, response *restful.Response) {
 	list, err := l.getDBLocations()
 	if err != nil {
 		logger.Error("Get locations: ", err)
@@ -170,23 +182,25 @@ func (l *WeatherLocation) getLocations(request *restful.Request, response *restf
 	response.WriteEntity(list)
 }
 
-func (l *WeatherLocation) deleteLocation(request *restful.Request, response *restful.Response) {
-	locationId, err := strconv.Atoi(request.PathParameter("location_id"))
+func (l *Location) deleteLocation(request *restful.Request, response *restful.Response) {
+	var err error
+
+	l.LocationId, err = strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Delete location: ", err)
 		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
 		return
 	}
 
-	if err = l.deleteDBLocation(locationId); err != nil {
+	if err = l.deleteDBLocation(); err != nil {
 		logger.Error("Delete location: ", err)
 		response.WriteErrorString(http.StatusInternalServerError,
-			fmt.Sprintf("can not delete id location '%d'", locationId))
+			fmt.Sprintf("can not delete id location '%d'", l.LocationId))
 		return
 	}
 
 	// TODO delete also history or ON DELETE CASCADE
-	response.WriteErrorString(http.StatusOK, fmt.Sprintf("Location '%s' has been deleted", locationId))
+	response.WriteErrorString(http.StatusOK, fmt.Sprintf("Location '%d' has been deleted", l.LocationId))
 }
 
 func parseOpenMapWeatherResponse(response *http.Response) (*OpenMapWeather, error) {
@@ -227,80 +241,41 @@ func parseOpenMapWeatherResponse(response *http.Response) (*OpenMapWeather, erro
 CREATE TABLE locations (location_id INTEGER PRIMARY KEY, city_name VARCHAR NOT NULL,
 country_code CHAR(10) NOT NULL, latitude numeric(6,2), longitude numeric(6,2), UNIQUE(city_name, country_code));
 */
-func (l *WeatherLocation) saveDBLocation(location Location) error {
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",       //todo env
-		Database: "weather",        //todo env
-		Password: "postgres",       //todo env
-		Addr:     "localhost:5432", //todo env
-	})
+func (l *Location) saveDBLocation() error {
+	db := pg.Connect(l.config.database)
 	defer db.Close()
 
-	return db.Insert(&location)
+	return db.Insert(l)
 }
 
-func (l *WeatherLocation) deleteDBLocation(locationId int) error {
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",       //todo env
-		Database: "weather",        //todo env
-		Password: "postgres",       //todo env
-		Addr:     "localhost:5432", //todo env
-	})
+func (l *Location) deleteDBLocation() error {
+	db := pg.Connect(l.config.database) //TODO nil
 	defer db.Close()
 
-	location := &Location{LocationId: locationId}
-
-	_, err := db.Model(location).Where("location_id = ?location_id").Delete()
+	_, err := db.Model(l).Where("location_id = ?location_id").Delete()
 	return err
 }
 
-func (l *WeatherLocation) getDBLocations() ([]Location, error) {
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",       //todo env
-		Database: "weather",        //todo env
-		Password: "postgres",       //todo env
-		Addr:     "localhost:5432", //todo env
-	})
+func (l *Location) getDBLocations() ([]Location, error) {
+	db := pg.Connect(l.config.database)
 	defer db.Close()
 
-	locations := []Location{}
+	var locations []Location
 	err := db.Model(&locations).Order("country_code ASC", "city_name ASC").Select()
 	return locations, err
 }
 
-func (l *WeatherLocation) getDBLocation(locationId int) (*Location, error) {
-	db := pg.Connect(&pg.Options{
-		User:     "postgres",       //todo env
-		Database: "weather",        //todo env
-		Password: "postgres",       //todo env
-		Addr:     "localhost:5432", //todo env
-	})
-	defer db.Close()
-
-	location := &Location{}
-	err := db.Model(location).Where("location_id = ?", locationId).Select()
-	if err != nil {
-		return nil, err
+func (l *Location) buildLocationEndpoint() string {
+	if l.LocationId > 0 {
+		return fmt.Sprintf("%s&id=%d", l.config.openWeatherMapUrl, l.LocationId)
 	}
-	return location, nil
-}
 
-func (l *WeatherLocation) buildWeatherEndpoint1(cityName, countryCode string) string {
-	//TODO maybe construct request with params
-	uri := fmt.Sprintf("%s/%s/weather?appid=%s&q=%s", weatherApiUrl, weatherApiVersion, weatherApiToken, cityName)
-
-	if len(countryCode) > 0 {
-		uri += fmt.Sprintf(",%s", countryCode)
+	if len(l.CityName) > 0 {
+		uri := fmt.Sprintf("%s&q=%s", l.config.openWeatherMapUrl, l.CityName)
+		if len(l.CountryCode) > 0 {
+			uri += fmt.Sprintf(",%s", l.CountryCode)
+		}
+		return uri
 	}
-	return uri
-}
-
-func (l *WeatherLocation) buildWeatherEndpoint(cityId string) string {
-	//TODO maybe construct request with params
-	//uri := fmt.Sprintf("%s/%s/weather?appid=%s&q=%s", weatherApiUrl, weatherApiVersion, weatherApiToken, city)
-	//
-	//if len(country) > 0 {
-	//	uri += fmt.Sprintf(",%s", country)
-	//}
-	return fmt.Sprintf("%s/%s/weather?appid=%s&id=%s", weatherApiUrl, weatherApiVersion, weatherApiToken, cityId)
+	return "" // TODO error?
 }

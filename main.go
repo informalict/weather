@@ -3,19 +3,16 @@ package main
 import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
+	//"github.com/go-pg/pg"
 	"github.com/mieczyslaw1980/weather/api"
-	"net/http"
-	"time"
-
 	"log"
+	"net/http"
+	//"os"
 )
 
 func main() {
-	client := http.Client{
-		Timeout: time.Duration(3 * time.Second),
-	}
-
-	l := api.NewWeatherWebService(client)
+	db := api.NewDB()
+	l := api.NewLocation(db)
 	restful.DefaultContainer.Add(l.WebService())
 
 	config := restfulspec.Config{
