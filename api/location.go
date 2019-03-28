@@ -172,7 +172,7 @@ func (l *Location) createLocation(request *restful.Request, response *restful.Re
 }
 
 func (l *Location) getLocations(request *restful.Request, response *restful.Response) {
-	list, err := l.getDBLocations()
+	list, err := l.db.getDBLocations()
 	if err != nil {
 		logger.Error("Get locations: ", err)
 		response.WriteErrorString(http.StatusInternalServerError, "Service is unavailable")
@@ -254,15 +254,6 @@ func (l *Location) deleteDBLocation() error {
 
 	_, err := db.Model(l).Where("location_id = ?location_id").Delete()
 	return err
-}
-
-func (l *Location) getDBLocations() ([]Location, error) {
-	db := pg.Connect(l.config.database)
-	defer db.Close()
-
-	var locations []Location
-	err := db.Model(&locations).Order("country_code ASC", "city_name ASC").Select()
-	return locations, err
 }
 
 func (l *Location) buildLocationEndpoint() string {

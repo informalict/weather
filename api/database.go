@@ -11,6 +11,7 @@ type DBConfig struct {
 
 type DatabaseLocation interface {
 	getDBLocation(id int) (Location, error)
+	getDBLocations() ([]Location, error)
 }
 
 func NewDB() *DBConfig {
@@ -25,10 +26,19 @@ func NewDB() *DBConfig {
 }
 
 func (d *DBConfig) getDBLocation(id int) (Location, error) {
-	a := pg.Connect(d.database)
-	defer a.Close()
+	db := pg.Connect(d.database)
+	defer db.Close()
 
 	location := Location{}
-	err := a.Model(&location).Where("location_id = ?", id).Select()
+	err := db.Model(&location).Where("location_id = ?", id).Select()
 	return location, err
+}
+
+func (d *DBConfig) getDBLocations() ([]Location, error) {
+	db := pg.Connect(d.database)
+	defer db.Close()
+
+	var locations []Location
+	err := db.Model(&locations).Order("country_code ASC", "city_name ASC").Select()
+	return locations, err
 }
