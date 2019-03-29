@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
-	"github.com/go-pg/pg"
 	"github.com/google/logger"
 	"io/ioutil"
 	"net/http"
@@ -21,9 +20,8 @@ type Location struct {
 	Latitude    float32 `json:"latitude" description:"name of the city"`
 	Longitude   float32 `json:"longitude" description:"name of the city"`
 	client      http.Client
-	db          DatabaseLocation
+	db          LocationDBOperations
 	config      struct {
-		database          *pg.Options
 		openWeatherMapUrl string
 	}
 }
@@ -45,22 +43,15 @@ const (
 	weatherApiVersion = "2.5"
 )
 
-func NewLocation(dl DatabaseLocation) *Location {
+func NewLocation(db LocationDBOperations) *Location {
 	return &Location{
 		client: http.Client{ //TODO should i chnge that
 			Timeout: time.Duration(3 * time.Second),
 		},
-		db: dl,
+		db: db,
 		config: struct {
-			database          *pg.Options
 			openWeatherMapUrl string
 		}{
-			database: &pg.Options{
-				User:     os.Getenv("DB_USER"),     //"postgres",       //todo env
-				Database: os.Getenv("DB_DATABASE"), //"weather",            //todo env
-				Password: os.Getenv("DB_PASSWORD"), //"postgres",               //todo env
-				Addr:     os.Getenv("DB_ADDRESS"),  //"localhost:5432",         //todo env
-			},
 			openWeatherMapUrl: fmt.Sprintf("%s/%s/weather?appid=%s",
 				weatherApiUrl, weatherApiVersion, os.Getenv("OPEN_WEATHER_MAP_TOKEN")),
 		},
@@ -120,7 +111,7 @@ func (l *Location) getLocation(request *restful.Request, response *restful.Respo
 	loc, err := l.db.getDBLocation(l.LocationId)
 	if err != nil {
 		logger.Error("Get location: ", err)
-		response.WriteErrorString(http.StatusInternalServerError, "Service is unavailable")
+		response.WriteErrorString(http.StatusInternalServerError, "service is unavailable")
 		return
 	}
 
@@ -160,7 +151,7 @@ func (l *Location) createLocation(request *restful.Request, response *restful.Re
 	l.Latitude = result.Coord.Latitude
 	l.Longitude = result.Coord.Longitude
 
-	err = l.saveDBLocation()
+	l, err = l.db.saveDBLocation(l)
 	if err != nil {
 		logger.Error("Create location: ", err)
 		// TODO StatusConflict if exists record
@@ -192,7 +183,7 @@ func (l *Location) deleteLocation(request *restful.Request, response *restful.Re
 		return
 	}
 
-	if err = l.deleteDBLocation(); err != nil {
+	if err = l.db.deleteDBLocation(l.LocationId); err != nil {
 		logger.Error("Delete location: ", err)
 		response.WriteErrorString(http.StatusInternalServerError,
 			fmt.Sprintf("can not delete id location '%d'", l.LocationId))
@@ -236,25 +227,6 @@ func parseOpenMapWeatherResponse(response *http.Response) (*OpenMapWeather, erro
 //	}
 //	response.WriteErrorString(http.StatusOK, string(body))
 //}
-
-/*
-CREATE TABLE locations (location_id INTEGER PRIMARY KEY, city_name VARCHAR NOT NULL,
-country_code CHAR(10) NOT NULL, latitude numeric(6,2), longitude numeric(6,2), UNIQUE(city_name, country_code));
-*/
-func (l *Location) saveDBLocation() error {
-	db := pg.Connect(l.config.database)
-	defer db.Close()
-
-	return db.Insert(l)
-}
-
-func (l *Location) deleteDBLocation() error {
-	db := pg.Connect(l.config.database) //TODO nil
-	defer db.Close()
-
-	_, err := db.Model(l).Where("location_id = ?location_id").Delete()
-	return err
-}
 
 func (l *Location) buildLocationEndpoint() string {
 	if l.LocationId > 0 {
