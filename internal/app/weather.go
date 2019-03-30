@@ -21,8 +21,9 @@ func NewStatisticsEndpoint(db databaseProvider, o *OpenWeatherAPI) *StatisticsEn
 	}
 }
 
-type Weather struct {
+type Statistic struct {
 	Temperature float32 `json:"temperature"`
+	LocationId  int
 	Pressure    int     `json:"pressure"`
 	Humidity    int     `json:"humidity"`
 	TempMin     float32 `json:"temp_min"`
@@ -43,8 +44,8 @@ func (w *StatisticsEndpoint) WebService() *restful.WebService {
 		Doc("get the weather").
 		Param(ws.PathParameter("location_id", "identifier of the location").DataType("integer")).
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Writes(Weather{}).
-		Returns(http.StatusOK, "OK", Weather{}).
+		Writes(Statistic{}).
+		Returns(http.StatusOK, "OK", Statistic{}).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
 		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
 		Returns(http.StatusNotFound, "location id not found", nil))
@@ -79,8 +80,9 @@ func (w *StatisticsEndpoint) getWeather(request *restful.Request, response *rest
 		return
 	}
 
-	weather := Weather{
+	s := Statistic{
 		Temperature: result.Main.Temp,
+		LocationId:  locationId,
 		Pressure:    result.Main.Pressure,
 		Humidity:    result.Main.Humidity,
 		TempMin:     result.Main.TempMin,
@@ -89,12 +91,12 @@ func (w *StatisticsEndpoint) getWeather(request *restful.Request, response *rest
 		WindSpeed:   result.Wind.Speed,
 	}
 
-	err = w.db.saveDBStatistics(weather)
+	err = w.db.saveDBStatistics(s)
 	if err != nil {
 		logger.Error("Save weather: ", err)
 		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
 		return
 	}
 
-	response.WriteEntity(&weather)
+	response.WriteEntity(&s)
 }

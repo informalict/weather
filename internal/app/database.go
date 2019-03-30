@@ -15,14 +15,13 @@ var (
 CREATE TABLE locations (
 location_id INTEGER PRIMARY KEY,
 city_name VARCHAR NOT NULL,
-country_code CHAR(10) NOT NULL,//TODO 10?
+country_code CHAR(4) NOT NULL,//TODO 10?
 latitude numeric(6,2),
 longitude numeric(6,2),
 UNIQUE(city_name, country_code)
 );
 
-//TODO weathers?
-CREATE TABLE weathers(
+CREATE TABLE statistics(
 id SERIAL PRIMARY KEY,
 location_id INTEGER REFERENCES locations(location_id),
 temperature numeric(6,2),
@@ -34,18 +33,15 @@ visibility INTEGER,
 pressure INTEGER
 );
 
-CREATE INDEX weather_location ON weathers(location_id);
-
-
-location_id INTEGER PRIMARY KEY, city_name VARCHAR NOT NULL,
-country_code CHAR(10) NOT NULL, latitude numeric(6,2), longitude numeric(6,2), UNIQUE(city_name, country_code));
+CREATE INDEX statistics_location ON statistics(location_id);
 */
+
 type databaseProvider interface {
 	getDBLocation(int) (Location, error)
 	getDBLocations() ([]Location, error)
 	saveDBLocation(Location) error
 	deleteDBLocation(int) error
-	saveDBStatistics(Weather) error
+	saveDBStatistics(Statistic) error
 }
 
 type Database struct {
@@ -63,11 +59,11 @@ func NewDB() *Database {
 	}
 }
 
-func (d *Database) saveDBStatistics(w Weather) error {
+func (d *Database) saveDBStatistics(s Statistic) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	return db.Insert(&w)
+	return db.Insert(&s)
 }
 
 func (d *Database) getDBLocation(id int) (Location, error) {
