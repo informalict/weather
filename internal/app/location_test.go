@@ -16,31 +16,37 @@ import (
 	"time"
 )
 
-type fakeLocationDB struct {
-	err       error
-	locations []Location
+type fakeDatabase struct {
+	err        error
+	errStat    error
+	locations  []Location
+	statistics Statistic
 }
 
-func (f fakeLocationDB) getDBLocation(id int) (Location, error) {
+func (f fakeDatabase) getDBLocation(id int) (Location, error) {
 	if len(f.locations) > 0 {
 		return f.locations[0], f.err
 	}
 	return Location{}, f.err
 }
 
-func (f fakeLocationDB) getDBLocations() ([]Location, error) {
+func (f fakeDatabase) getDBLocations() ([]Location, error) {
 	return f.locations, f.err
 }
 
-func (f fakeLocationDB) saveDBLocation(location Location) error {
+func (f fakeDatabase) saveDBLocation(location Location) error {
 	if len(f.locations) > 0 {
 		location = f.locations[0]
 	}
 	return f.err
 }
 
-func (f fakeLocationDB) deleteDBLocation(id int) error {
+func (f fakeDatabase) deleteDBLocation(id int) error {
 	return f.err
+}
+
+func (f fakeDatabase) saveDBStatistics(s Statistic) error {
+	return f.errStat
 }
 
 func TestMain(m *testing.M) {
@@ -64,7 +70,7 @@ func TestGetLocation(t *testing.T) {
 		name          string
 		expectedError error
 		locationId    string
-		db            fakeLocationDB
+		db            fakeDatabase
 		HTTPStatus    int
 	}{
 		{
@@ -76,7 +82,7 @@ func TestGetLocation(t *testing.T) {
 		{
 			name:       "No connection to database",
 			locationId: "123",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: errors.New("can not connect to database"),
 			},
 			expectedError: errors.New("service is unavailable"),
@@ -85,7 +91,7 @@ func TestGetLocation(t *testing.T) {
 		{
 			name:       "Location not found in database",
 			locationId: "462356",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: DBNoRows,
 			},
 			HTTPStatus:    http.StatusNotFound,
@@ -94,7 +100,7 @@ func TestGetLocation(t *testing.T) {
 		{
 			name:       "Get valid location",
 			locationId: "123",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				locations: []Location{
 					{
 						LocationId:  123,
@@ -148,7 +154,7 @@ func TestDeleteLocation(t *testing.T) {
 		name          string
 		expectedError error
 		locationId    string
-		db            fakeLocationDB
+		db            fakeDatabase
 		HTTPStatus    int
 	}{
 		{
@@ -160,7 +166,7 @@ func TestDeleteLocation(t *testing.T) {
 		{
 			name:       "No entry in database",
 			locationId: "123",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: DBNoRows,
 			},
 			expectedError: errors.New("location '123' does not exist"),
@@ -169,7 +175,7 @@ func TestDeleteLocation(t *testing.T) {
 		{
 			name:       "Database error",
 			locationId: "123",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: errors.New("database error"),
 			},
 			expectedError: errors.New("can not delete location '123'"),
@@ -179,7 +185,7 @@ func TestDeleteLocation(t *testing.T) {
 			name:       "Location has been deleted",
 			locationId: "123",
 			HTTPStatus: http.StatusOK,
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: nil,
 			},
 			expectedError: nil,
@@ -216,12 +222,12 @@ func TestGetLocations(t *testing.T) {
 	tests := []struct {
 		name          string
 		expectedError error
-		db            fakeLocationDB
+		db            fakeDatabase
 		HTTPStatus    int
 	}{
 		{
 			name: "Database error",
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: errors.New("database error"),
 			},
 			expectedError: errors.New("service is unavailable"),
@@ -230,7 +236,7 @@ func TestGetLocations(t *testing.T) {
 		{
 			name:       "The list with two locations",
 			HTTPStatus: http.StatusOK,
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				locations: []Location{
 					{
 						LocationId:  123,
@@ -288,18 +294,17 @@ func TestCreateLocation(t *testing.T) {
 		expectedError       error
 		cityName            string
 		countryCode         string
-		db                  fakeLocationDB
+		db                  fakeDatabase
 		HTTPStatus          int
 		externalAPIResponse string
 		externalAPITimeout  time.Duration
 		contentType         string
 	}{
 		{
-			name:               "Bad request",
-			expectedError:      fmt.Errorf("invalid data input"),
-			HTTPStatus:         http.StatusBadRequest,
-			externalAPITimeout: time.Second * 2,
-			contentType:        "application/invalid",
+			name:          "Bad request",
+			expectedError: fmt.Errorf("invalid data input"),
+			HTTPStatus:    http.StatusBadRequest,
+			contentType:   "application/invalid",
 		},
 		{
 			name:               "Open weather API timeout",
@@ -322,7 +327,7 @@ func TestCreateLocation(t *testing.T) {
 			expectedError:       fmt.Errorf("service is unavailable"),
 			HTTPStatus:          http.StatusServiceUnavailable,
 			externalAPIResponse: `{"city_name": "Warsaw", "country_code": "PL"}`,
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				err: fmt.Errorf("cannot connect to database"),
 			},
 		},
@@ -331,7 +336,7 @@ func TestCreateLocation(t *testing.T) {
 			cityName:            "Warsaw",
 			HTTPStatus:          http.StatusCreated,
 			externalAPIResponse: `{ "id": 756135, "name": "Warsaw", "sys": { "country": "PL" } }`,
-			db: fakeLocationDB{
+			db: fakeDatabase{
 				locations: []Location{
 					{
 						LocationId:  756135,
@@ -411,17 +416,16 @@ func TestCreateLocation(t *testing.T) {
 
 		})
 	}
-
 }
 
-func TestWebService(t *testing.T) {
-	t.Run("Check endpoint settings", func(t *testing.T) {
+func TestLocationEnpoint(t *testing.T) {
+	t.Run("Check location endpoint settings", func(t *testing.T) {
 		// Arrange
 		externalAPI := NewOpenWeatherAPI(nil)
 		l := NewLocationEndpoint(nil, externalAPI)
 
 		// Act
-		ws := l.WebService()
+		ws := l.Endpoint()
 
 		// Assert
 		require.NotNil(t, ws)

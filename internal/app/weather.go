@@ -24,21 +24,18 @@ func NewStatisticsEndpoint(db databaseProvider, o *OpenWeatherAPI) *StatisticsEn
 type Statistic struct {
 	Temperature float32 `json:"temperature"`
 	LocationId  int
-	Pressure    int     `json:"pressure"`
-	Humidity    int     `json:"humidity"`
 	TempMin     float32 `json:"temp_min"`
 	TempMax     float32 `json:"temp_max"`
-	Visibility  int     `json:"visibility"`
-	WindSpeed   float32 `json:"wind_speed"`
+	Type        string  `json:"type"`
 }
 
-func (w *StatisticsEndpoint) WebService() *restful.WebService {
+func (w *StatisticsEndpoint) Endpoint() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/weather").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	tags := []string{"weather"} // TODO plural mode
+	tags := []string{"weather"}
 
 	ws.Route(ws.GET("/{location_id}").To(w.getWeather).
 		Doc("get the weather").
@@ -83,12 +80,12 @@ func (w *StatisticsEndpoint) getWeather(request *restful.Request, response *rest
 	s := Statistic{
 		Temperature: result.Main.Temp,
 		LocationId:  locationId,
-		Pressure:    result.Main.Pressure,
-		Humidity:    result.Main.Humidity,
 		TempMin:     result.Main.TempMin,
 		TempMax:     result.Main.TempMax,
-		Visibility:  result.Visibility,
-		WindSpeed:   result.Wind.Speed,
+	}
+
+	if len(result.Weather) > 0 {
+		s.Type = result.Weather[0].Main // TODO save more then one weather condition
 	}
 
 	err = w.db.saveDBStatistics(s)
@@ -98,5 +95,5 @@ func (w *StatisticsEndpoint) getWeather(request *restful.Request, response *rest
 		return
 	}
 
-	response.WriteEntity(&s)
+	response.WriteHeaderAndEntity(http.StatusCreated, &s)
 }

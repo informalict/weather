@@ -25,12 +25,9 @@ CREATE TABLE statistics(
 id SERIAL PRIMARY KEY,
 location_id INTEGER REFERENCES locations(location_id),
 temperature numeric(6,2),
-humidity INTEGER,
 temp_min numeric(6,2),
 temp_max numeric(6,2),
-wind_speed numeric(6,2),
-visibility INTEGER,
-pressure INTEGER
+type varchar
 );
 
 CREATE INDEX statistics_location ON statistics(location_id);

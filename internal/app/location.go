@@ -29,7 +29,7 @@ func NewLocationEndpoint(db databaseProvider, o *OpenWeatherAPI) *LocationEndpoi
 	}
 }
 
-func (l *LocationEndpoint) WebService() *restful.WebService {
+func (l *LocationEndpoint) Endpoint() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/locations").
 		Consumes(restful.MIME_JSON).

@@ -9,12 +9,19 @@ import (
 	"os"
 )
 
+type Weather struct {
+	Id          int    `json:"id"`
+	Main        string `json:"main"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+}
+
 type OpenMapWeather struct {
 	Coord struct {
 		Latitude  float32 `json:"lat"`
 		Longitude float32 `json:"lon"`
 	} `json:"coord"`
-	Wea []struct { //TODO change name
+	Weather []struct {
 		Id          int    `json:"id"`
 		Main        string `json:"main"`
 		Description string `json:"description"`
@@ -47,7 +54,7 @@ type OpenMapWeather struct {
 	} `json:sys`
 	Id   int    `json:"id"`
 	Name string `json:"name"`
-	Cpd  int    `json:"cod"`
+	//Cpd  int    `json:"cod"`
 }
 
 type OpenWeatherAPI struct {
@@ -79,6 +86,7 @@ func (o *OpenWeatherAPI) parseResponse(response *http.Response) (*OpenMapWeather
 	}
 
 	weather := &OpenMapWeather{}
+	//weather.Weather = make([]struct,2)
 	if err = json.Unmarshal(body, weather); err != nil {
 		return nil, fmt.Errorf("%s body=(%s)", err.Error(), body)
 	}
