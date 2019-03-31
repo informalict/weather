@@ -10,35 +10,13 @@ var (
 	DBNoRows = errors.New("DATABASE_NO_ROWS")
 )
 
-/*
-//TODO create schema
-CREATE TABLE locations (
-location_id INTEGER PRIMARY KEY,
-city_name VARCHAR NOT NULL,
-country_code CHAR(4) NOT NULL,//TODO 10?
-latitude numeric(6,2),
-longitude numeric(6,2),
-UNIQUE(city_name, country_code)
-);
-
-CREATE TABLE statistics(
-id SERIAL PRIMARY KEY,
-location_id INTEGER REFERENCES locations(location_id),
-temperature numeric(6,2),
-temp_min numeric(6,2),
-temp_max numeric(6,2),
-type varchar
-);
-
-CREATE INDEX statistics_location ON statistics(location_id);
-*/
-
 type databaseProvider interface {
 	getDBLocation(int) (Location, error)
 	getDBLocations() ([]Location, error)
 	saveDBLocation(Location) error
 	deleteDBLocation(int) error
-	saveDBStatistics(Statistic) error
+	saveDBWeather(Weather) error
+	getStatistics(id int) (Statistics, error)
 }
 
 type Database struct {
@@ -54,13 +32,6 @@ func NewDB() *Database {
 			Addr:     os.Getenv("DB_ADDRESS"),
 		},
 	}
-}
-
-func (d *Database) saveDBStatistics(s Statistic) error {
-	db := pg.Connect(d.config)
-	defer db.Close()
-
-	return db.Insert(&s)
 }
 
 func (d *Database) getDBLocation(id int) (Location, error) {
@@ -102,4 +73,65 @@ func (d *Database) deleteDBLocation(id int) error {
 		return DBNoRows
 	}
 	return err
+}
+
+func (d *Database) saveDBWeather(s Weather) error {
+	db := pg.Connect(d.config)
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Insert(&s); err == nil {
+		// Unfortunately there is no possibility to write record with relations
+		for k := range s.Conditions {
+			s.Conditions[k].StatisticId = s.Id
+		}
+		err = tx.Insert(&s.Conditions)
+	}
+
+	if err != nil {
+		tx.Rollback()
+	} else {
+		tx.Commit()
+	}
+	return err
+}
+
+func (d *Database) getStatistics(id int) (Statistics, error) {
+	db := pg.Connect(d.config)
+	defer db.Close()
+
+	s := Statistics{}
+	var err error
+	s.Count, err = db.Model(&Weather{}).Where("location_id = ?", id).Count()
+	if err != nil {
+		return s, nil
+	}
+
+	err = db.Model(&s.MonthTemperature).
+		ColumnExpr("avg(temperature)").
+		ColumnExpr("min(temp_min)").
+		ColumnExpr("max(temp_max)").
+		ColumnExpr("to_char(date, 'YYYY-MM') as month").
+		Where("location_id = ?", id).Group("month").
+		Select()
+
+	return s, err
+	//err := db.Model(&s).
+	//	ColumnExpr("statistics.date").
+	//	ColumnExpr("conditions.type").
+	//	Join("JOIN conditions ON statistics.id = conditions.statistic_id").
+	//	Group("type", "date").
+	//	First()
+
+	//err := db.Model(&s).Column("statistic.id", "conditions.statistics_id").Select()
+
+	//Join("inner join companies_customers cc on customer.id = cc.customer_id").Where("cc.company_id = ?", companyID).Select()
+
+	//db.Model(&s).Join()
+	//db.Prepare("select type,date from statistics AS s left join conditions AS c on s.id=c.statistic_id group by type,date"
+	//select * from statistics where conditions @> '{"rain","cloudy"}';
 }

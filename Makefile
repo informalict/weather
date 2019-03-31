@@ -1,0 +1,40 @@
+GO = go
+Q = $(if $(filter 0,$V),,@)
+GO_PKGS             = $(shell $(GO) list ./... | grep -v /vendor/)
+
+build:
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ${GO} build  \
+		-v \
+		-ldflags "-s -w" \
+		-o cmd/weather .
+
+linter:
+	gometalinter \
+		--skip=vendor \
+        --disable-all \
+        --enable=golint \
+        --enable=misspell \
+        --enable=vetshadow \
+        --enable=gotype \
+        --enable=vet \
+        --enable=goconst \
+        --enable=ineffassign \
+        --enable=staticcheck \
+        --deadline=300s \
+        ./... ;
+
+containers: build
+	docker build -f Dockerfile -t weather .
+	docker build -f Dockerfile.sql -t weather-database .
+
+test:
+	echo "mode: set" > coverage-all.out
+	$(foreach pkg,$(GO_PKGS), \
+		$(GO) test -v -race -timeout 30s -coverprofile=coverage.out $(pkg) | tee -a test-results.out || exit 1;\
+		tail -n +2 coverage.out >> coverage-all.out || exit 1;)
+	$(GO) tool cover -func=coverage-all.out
+
+
+
+
+

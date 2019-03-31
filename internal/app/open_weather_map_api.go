@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-type Weather struct {
+type Description struct {
 	Id          int    `json:"id"`
 	Main        string `json:"main"`
 	Description string `json:"description"`
@@ -21,7 +21,7 @@ type OpenMapWeather struct {
 		Latitude  float32 `json:"lat"`
 		Longitude float32 `json:"lon"`
 	} `json:"coord"`
-	Weather []struct {
+	Description []struct {
 		Id          int    `json:"id"`
 		Main        string `json:"main"`
 		Description string `json:"description"`

@@ -1,2 +1,6 @@
 .idea
-bin
+cmd
+coverage-all.out
+coverage.out
+internal/app/testing.log
+test-results.out

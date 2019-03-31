@@ -17,10 +17,10 @@ func main() {
 	db := app.NewDB()
 
 	l := app.NewLocationEndpoint(db, externalAPI)
-	w := app.NewStatisticsEndpoint(db, externalAPI)
+	w := app.NewWeatherEndpoint(db, externalAPI)
 
-	restful.DefaultContainer.Add(l.WebService())
-	restful.DefaultContainer.Add(w.WebService())
+	restful.DefaultContainer.Add(l.Endpoint())
+	restful.DefaultContainer.Add(w.Endpoint())
 
 	config := restfulspec.Config{
 		WebServices: restful.RegisteredWebServices(),

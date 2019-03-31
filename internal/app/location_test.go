@@ -16,39 +16,6 @@ import (
 	"time"
 )
 
-type fakeDatabase struct {
-	err        error
-	errStat    error
-	locations  []Location
-	statistics Statistic
-}
-
-func (f fakeDatabase) getDBLocation(id int) (Location, error) {
-	if len(f.locations) > 0 {
-		return f.locations[0], f.err
-	}
-	return Location{}, f.err
-}
-
-func (f fakeDatabase) getDBLocations() ([]Location, error) {
-	return f.locations, f.err
-}
-
-func (f fakeDatabase) saveDBLocation(location Location) error {
-	if len(f.locations) > 0 {
-		location = f.locations[0]
-	}
-	return f.err
-}
-
-func (f fakeDatabase) deleteDBLocation(id int) error {
-	return f.err
-}
-
-func (f fakeDatabase) saveDBStatistics(s Statistic) error {
-	return f.errStat
-}
-
 func TestMain(m *testing.M) {
 	//TODO how to turn of flogger
 	lf, err := os.OpenFile("./testing.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)

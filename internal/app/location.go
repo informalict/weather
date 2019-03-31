@@ -144,7 +144,7 @@ func (l *LocationEndpoint) getLocations(request *restful.Request, response *rest
 		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
 		return
 	}
-
+	//TODO empty list
 	response.WriteEntity(list)
 }
 

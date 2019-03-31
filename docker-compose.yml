@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  db:
+    image: weather-database:latest
+
+  api:
+    image: weather:latest
+    expose:
+      - 8080
+    ports:
+      - 8080:8080
+    links:
+      - db
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_DATABASE=weather
+      - DB_ADDRESS=db:5432
+      - OPEN_WEATHER_MAP_TOKEN=d7bf62922891f21c84174792d611c5fc
+      - OPEN_WEATHER_MAP_URL=http://api.openweathermap.org/data/2.5

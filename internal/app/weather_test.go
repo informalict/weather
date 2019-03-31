@@ -19,7 +19,7 @@ func TestStatisticsEndpoint(t *testing.T) {
 	t.Run("Check statistics endpoint settings", func(t *testing.T) {
 		// Arrange
 		externalAPI := NewOpenWeatherAPI(nil)
-		l := NewStatisticsEndpoint(nil, externalAPI)
+		l := NewWeatherEndpoint(nil, externalAPI)
 
 		// Act
 		ws := l.Endpoint()
@@ -28,7 +28,7 @@ func TestStatisticsEndpoint(t *testing.T) {
 		require.NotNil(t, ws)
 		assert.Equal(t, "/weather", ws.RootPath())
 		routes := ws.Routes()
-		assert.Len(t, routes, 1)
+		assert.Len(t, routes, 2)
 	})
 }
 
@@ -41,14 +41,12 @@ func TestGetWeather(t *testing.T) {
 		db                  fakeDatabase
 		HTTPStatus          int
 		externalAPIResponse string
-		contentType         string
 	}{
 		{
 			name:          "Bad request",
 			LocationId:    "abc",
 			expectedError: fmt.Errorf("location_id must be an integer"),
 			HTTPStatus:    http.StatusBadRequest,
-			contentType:   "application/invalid",
 		},
 		{
 			name:          "Location does not exist",
@@ -89,10 +87,14 @@ func TestGetWeather(t *testing.T) {
 			name:                "Statistics has been saved",
 			LocationId:          "123",
 			HTTPStatus:          http.StatusCreated,
-			externalAPIResponse: `{ "weather": [ { "main": "Cloudy" } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
+			externalAPIResponse: `{ "weather": [ { "main": "Rain", "id": 501 } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
 			db: fakeDatabase{
-				statistics: Statistic{
-					Type:        "Cloudy",
+				weather: Weather{
+					Conditions: []Condition{
+						{
+							Type: 501,
+						},
+					},
 					LocationId:  123,
 					Temperature: 290.85,
 					TempMin:     288.71,
@@ -122,16 +124,12 @@ func TestGetWeather(t *testing.T) {
 
 			os.Setenv("OPEN_WEATHER_MAP_URL", server.URL)
 			fakeAPI := NewOpenWeatherAPI(client)
-			l := NewStatisticsEndpoint(test.db, fakeAPI)
+			l := NewWeatherEndpoint(test.db, fakeAPI)
 
 			bodyString := fmt.Sprintf(`{"location_id": "%s"}`, test.LocationId)
 			bodyReader := strings.NewReader(bodyString)
 			httpRequest, _ := http.NewRequest("POST", "/weather", bodyReader)
-			if len(test.contentType) > 0 {
-				httpRequest.Header.Set("Content-Type", test.contentType)
-			} else {
-				httpRequest.Header.Set("Content-Type", "application/json")
-			}
+			httpRequest.Header.Set("Content-Type", "application/json")
 			request := restful.NewRequest(httpRequest)
 
 			httpWriter := httptest.NewRecorder()
@@ -153,7 +151,89 @@ func TestGetWeather(t *testing.T) {
 			assert.Nil(t, response.Error())
 			res := response.ResponseWriter.(*httptest.ResponseRecorder)
 			if assert.NotNil(t, res) {
-				s := Statistic{}
+				weather := Weather{}
+				err := json.Unmarshal(res.Body.Bytes(), &weather)
+				assert.Nil(t, err)
+				assert.Equal(t, test.db.weather, weather)
+			}
+		})
+	}
+}
+
+func TestGetStatistics(t *testing.T) {
+	// Arrange
+	tests := []struct {
+		name          string
+		expectedError error
+		LocationId    string
+		db            fakeDatabase
+		HTTPStatus    int
+	}{
+		{
+			name:          "Bad request",
+			LocationId:    "abc",
+			expectedError: fmt.Errorf("location_id must be an integer"),
+			HTTPStatus:    http.StatusBadRequest,
+		},
+		{
+			name:          "Can not get statistics",
+			LocationId:    "123",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusServiceUnavailable,
+			db: fakeDatabase{
+				err: errors.New("database error"),
+			},
+		},
+		{
+			name:       "Statistics have been returned",
+			LocationId: "123",
+			HTTPStatus: http.StatusOK,
+			db: fakeDatabase{
+				statistics: Statistics{
+					Count: 100,
+					MonthTemperature: []MonthTemperatureStatistics{
+						{
+							Min:   299.15,
+							Max:   302.59,
+							Avg:   291,
+							Month: "2018-03",
+						},
+						{
+							Min:   279.15,
+							Max:   282.59,
+							Avg:   281,
+							Month: "2019-03",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Arrange
+			w := NewWeatherEndpoint(test.db, nil)
+			request := restful.NewRequest(nil)
+			httpWriter := httptest.NewRecorder()
+			response := restful.NewResponse(httpWriter)
+			response.SetRequestAccepts(restful.MIME_JSON)
+			params := request.PathParameters()
+			params["location_id"] = test.LocationId
+
+			w.getStatistics(request, response)
+
+			// Assert
+			assert.Equal(t, test.HTTPStatus, response.StatusCode())
+			if test.expectedError != nil {
+				assert.EqualError(t, response.Error(), test.expectedError.Error())
+				return
+			}
+
+			assert.Nil(t, response.Error())
+			res := response.ResponseWriter.(*httptest.ResponseRecorder)
+			if assert.NotNil(t, res) {
+				s := Statistics{}
 				err := json.Unmarshal(res.Body.Bytes(), &s)
 				assert.Nil(t, err)
 				assert.Equal(t, test.db.statistics, s)
