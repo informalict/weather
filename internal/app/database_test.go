@@ -9,6 +9,7 @@ import (
 type fakeDatabase struct {
 	err        error
 	errSave    error
+	errStat    error
 	locations  []Location
 	weather    Weather
 	statistics Statistics
@@ -38,7 +39,7 @@ func (f fakeDatabase) saveDBWeather(s Weather) error {
 }
 
 func (f fakeDatabase) getStatistics(id int) (Statistics, error) {
-	return f.statistics, f.err
+	return f.statistics, f.errStat
 }
 
 func TestNewDB(t *testing.T) {

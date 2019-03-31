@@ -44,6 +44,26 @@ Get current weather condition at a moment and save that for later statistis
 Calculate statistics for previous cumulated weather conditions
 ```
 ### Examples
+1. Create new location by city name
+
+curl -X POST -H "content-type: application/json" --data '{"city_name": "Warsaw"}' localhost:8080/locations
+* HTTP Status 201
+```$xslt
+{
+ "city_name": "Warsaw",
+ "country_code": "PL",
+ "location_id": 756135,
+ "latitude": 52.23,
+ "longitude": 21.01
+}
+```
+2. Delete location
+* curl -X DELETE  localhost:8080/locations/756135
+```$xslt
+
+```
+
+
 TODO paste json here
 
 ### Tests

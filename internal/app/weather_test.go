@@ -72,7 +72,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:          "Can not get location from database",
 			LocationID:    "123",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 			db: fakeDatabase{
 				err: errors.New("database error"),
@@ -84,7 +84,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:          "Invalid format data from open map weather service",
 			LocationID:    "123",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusBadGateway,
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
@@ -104,7 +104,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:          "Unknown error from open weather map service",
 			LocationID:    "1234567890",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusBadGateway,
 			externalAPI: ExternalAPI{
 				response:   `{ "cod": "500", "message": "unknown" }`,
@@ -114,7 +114,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:          "Open weather API timeout",
 			LocationID:    "123",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusGatewayTimeout,
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
@@ -124,7 +124,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:          "Can not save statistics",
 			LocationID:    "123",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
@@ -137,7 +137,7 @@ func TestGetWeather(t *testing.T) {
 		{
 			name:       "Statistics has been saved",
 			LocationID: "123",
-			HTTPStatus: http.StatusCreated,
+			HTTPStatus: http.StatusOK,
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
 				response:   `{ "weather": [ { "main": "Rain", "id": 501 } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
@@ -236,12 +236,30 @@ func TestGetStatistics(t *testing.T) {
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{
-			name:          "Can not get statistics",
+			name:          "Location does not exist",
 			LocationID:    "123",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf("location '123' does not exist"),
+			HTTPStatus:    http.StatusNotFound,
+			db: fakeDatabase{
+				err: ErrDBNoRows,
+			},
+		},
+		{
+			name:          "Can not get location",
+			LocationID:    "123",
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 			db: fakeDatabase{
-				err: errors.New("database error"),
+				err: errors.New("get location database error"),
+			},
+		},
+		{
+			name:          "Can not get statistics",
+			LocationID:    "123",
+			expectedError: fmt.Errorf(serviceIsUnavailable),
+			HTTPStatus:    http.StatusServiceUnavailable,
+			db: fakeDatabase{
+				errStat: errors.New("get statistics database error"),
 			},
 		},
 		{

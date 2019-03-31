@@ -76,10 +76,12 @@ func (w *WeatherEndpoint) Endpoint() *restful.WebService {
 		Param(ws.PathParameter("location_id", "identifier of the location").DataType("integer")).
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Writes(Weather{}).
-		Returns(http.StatusCreated, "OK", Weather{}).
+		Returns(http.StatusOK, "OK", Weather{}).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
-		Returns(http.StatusNotFound, "location id not found", nil))
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil).
+		Returns(http.StatusNotFound, "location does not exist", nil).
+		Returns(http.StatusGatewayTimeout, "open weather api timeout", nil).
+		Returns(http.StatusBadGateway, "open weather api error", nil))
 
 	ws.Route(ws.GET("/{location_id}/statistics").To(w.getStatistics).
 		Doc("get the weather").
@@ -88,8 +90,8 @@ func (w *WeatherEndpoint) Endpoint() *restful.WebService {
 		Writes(Weather{}).
 		Returns(http.StatusOK, "OK", Weather{}).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
-		Returns(http.StatusNotFound, "location id not found", nil))
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil).
+		Returns(http.StatusNotFound, "location does not exist", nil))
 
 	return ws
 }
@@ -102,10 +104,21 @@ func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *rest
 		return
 	}
 
+	if _, err := w.db.getDBLocation(locationID); err != nil {
+		logger.Error("Get statistics: ", err)
+		if err == ErrDBNoRows {
+			response.WriteErrorString(http.StatusNotFound,
+				fmt.Sprintf("location '%d' does not exist", locationID))
+			return
+		}
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
+		return
+	}
+
 	s, err := w.db.getStatistics(locationID)
 	if err != nil {
 		logger.Error("Get statistics: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 	response.WriteHeaderAndEntity(http.StatusOK, &s)
@@ -127,7 +140,7 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 		}
 
 		logger.Error("Get weather: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 
@@ -137,7 +150,7 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 		if status == http.StatusNotFound {
 			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
 		} else {
-			response.WriteErrorString(status, "service is unavailable")
+			response.WriteErrorString(status, serviceIsUnavailable)
 		}
 		return
 	}
@@ -158,9 +171,9 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 	err = w.db.saveDBWeather(s)
 	if err != nil {
 		logger.Error("Get weather: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 
-	response.WriteHeaderAndEntity(http.StatusCreated, &s)
+	response.WriteHeaderAndEntity(http.StatusOK, &s)
 }

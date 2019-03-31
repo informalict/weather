@@ -11,7 +11,7 @@ import (
 
 func main() {
 	client := &http.Client{
-		Timeout: time.Duration(4 * time.Second),
+		Timeout: time.Duration(10 * time.Second),
 	}
 	externalAPI, err := app.NewOpenWeatherAPI(client)
 	if err != nil {

@@ -36,7 +36,7 @@ func TestGetLocation(t *testing.T) {
 			db: fakeDatabase{
 				err: errors.New("can not connect to database"),
 			},
-			expectedError: errors.New("service is unavailable"),
+			expectedError: errors.New(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 		},
 		{
@@ -181,7 +181,7 @@ func TestGetLocations(t *testing.T) {
 			db: fakeDatabase{
 				err: errors.New("database error"),
 			},
-			expectedError: errors.New("service is unavailable"),
+			expectedError: errors.New(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 		},
 		{
@@ -277,7 +277,7 @@ func TestCreateLocation(t *testing.T) {
 		{
 			name:          "Open weather API timeout",
 			cityName:      "Warsaw",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusGatewayTimeout,
 			externalAPI: ExternalAPI{
 				Timeout:    time.Second * 2,
@@ -287,7 +287,7 @@ func TestCreateLocation(t *testing.T) {
 		{
 			name:          "Invalid format data from open map weather service",
 			cityName:      "Warsaw",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusBadGateway,
 			externalAPI: ExternalAPI{
 				response:   `{invalid json}`,
@@ -308,7 +308,7 @@ func TestCreateLocation(t *testing.T) {
 			name:          "Location can not be saved in database",
 			cityName:      "Warsaw",
 			countryCode:   "PL",
-			expectedError: fmt.Errorf("service is unavailable"),
+			expectedError: fmt.Errorf(serviceIsUnavailable),
 			HTTPStatus:    http.StatusServiceUnavailable,
 			externalAPI: ExternalAPI{
 				response:   `{"city_name": "Warsaw", "country_code": "PL"}`,

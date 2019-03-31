@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	locationNotFound  = "location '%s' not found"
-	locationInvalidID = "location_id must be an integer"
+	locationNotFound     = "location '%s' not found"
+	locationInvalidID    = "location_id must be an integer"
+	serviceIsUnavailable = "service is unavailable"
 )
 
 // Location refers to database table 'locations'
@@ -54,7 +55,7 @@ func (l *LocationEndpoint) Endpoint() *restful.WebService {
 		Writes(Location{}).
 		Returns(http.StatusOK, "OK", Location{}).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil).
 		Returns(http.StatusNotFound, "location id not found", nil))
 
 	ws.Route(ws.POST("").To(l.createLocation).
@@ -63,17 +64,18 @@ func (l *LocationEndpoint) Endpoint() *restful.WebService {
 		Reads(Location{}).
 		Returns(http.StatusCreated, "OK", Location{}).
 		Returns(http.StatusBadRequest, "invalid input data", nil).
-		Returns(http.StatusGatewayTimeout, "service is unavailable", nil).
-		Returns(http.StatusBadGateway, "service is unavailable", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
-		Returns(http.StatusConflict, "location already exits", nil))
+		Returns(http.StatusGatewayTimeout, "open weather api timeout", nil).
+		Returns(http.StatusBadGateway, "open weather api error", nil).
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil).
+		Returns(http.StatusConflict, "location already exist", nil).
+		Returns(http.StatusNotFound, "location does not exist", nil))
 
 	ws.Route(ws.GET("/").To(l.getLocations).
 		Doc("get all locations").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Writes([]Location{}).
 		Returns(http.StatusOK, "OK", []Location{}).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil))
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil))
 
 	ws.Route(ws.DELETE("/{location_id}").To(l.deleteLocation).
 		Doc("delete a location").
@@ -81,8 +83,8 @@ func (l *LocationEndpoint) Endpoint() *restful.WebService {
 		Param(ws.PathParameter("location_id", "identifier of the location").DataType("integer")).
 		Returns(http.StatusOK, "OK", nil).
 		Returns(http.StatusBadRequest, "id location must be an integer", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
-		Returns(http.StatusNotFound, "location id not found", nil))
+		Returns(http.StatusServiceUnavailable, serviceIsUnavailable, nil).
+		Returns(http.StatusNotFound, "location does not exist", nil))
 
 	return ws
 }
@@ -102,7 +104,7 @@ func (l *LocationEndpoint) getLocation(request *restful.Request, response *restf
 			return
 		}
 		logger.Error("Get location: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 
@@ -129,7 +131,7 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 		if status == http.StatusNotFound {
 			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, s))
 		} else {
-			response.WriteErrorString(status, "service is unavailable")
+			response.WriteErrorString(status, serviceIsUnavailable)
 		}
 		return
 	}
@@ -152,11 +154,11 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 	err = l.db.saveDBLocation(location)
 	if err != nil {
 		logger.Error("Create location: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 
-	logger.Info("New location has been created", &location)
+	logger.Info("New location has been created ", location)
 	response.WriteHeaderAndEntity(http.StatusCreated, &location)
 }
 
@@ -164,7 +166,7 @@ func (l *LocationEndpoint) getLocations(request *restful.Request, response *rest
 	list, err := l.db.getDBLocations()
 	if err != nil {
 		logger.Error("Get locations: ", err)
-		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
+		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
 		return
 	}
 
