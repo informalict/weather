@@ -5,23 +5,27 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/google/logger"
+	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
 )
 
+// Location refers to database table 'locations'
 type Location struct {
 	CityName    string  `json:"city_name" description:"name of the city"`
 	CountryCode string  `json:"country_code" description:"country code"`
-	LocationId  int     `json:"location_id" description:"identifier of the location in open weather map service"`
+	LocationID  int     `json:"location_id" description:"identifier of the location in open weather map service"`
 	Latitude    float32 `json:"latitude" description:"name of the city"`
 	Longitude   float32 `json:"longitude" description:"name of the city"`
 }
 
+// LocationEndpoint stores connection to database and open weather API
 type LocationEndpoint struct {
 	db                databaseProvider
 	openWeatherMapAPI *OpenWeatherAPI
 }
 
+// NewLocationEndpoint returns LocationEndpoint instance
 func NewLocationEndpoint(db databaseProvider, o *OpenWeatherAPI) *LocationEndpoint {
 	return &LocationEndpoint{
 		db:                db,
@@ -29,6 +33,7 @@ func NewLocationEndpoint(db databaseProvider, o *OpenWeatherAPI) *LocationEndpoi
 	}
 }
 
+// Endpoint is a webservice for locations
 func (l *LocationEndpoint) Endpoint() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/locations").
@@ -55,7 +60,8 @@ func (l *LocationEndpoint) Endpoint() *restful.WebService {
 		Returns(http.StatusBadRequest, "invalid input data", nil).
 		Returns(http.StatusGatewayTimeout, "service is unavailable", nil).
 		Returns(http.StatusBadGateway, "service is unavailable", nil).
-		Returns(http.StatusServiceUnavailable, "service is unavailable", nil))
+		Returns(http.StatusServiceUnavailable, "service is unavailable", nil).
+		Returns(http.StatusConflict, "location already exits", nil))
 
 	ws.Route(ws.GET("/").To(l.getLocations).
 		Doc("get all locations").
@@ -77,17 +83,17 @@ func (l *LocationEndpoint) Endpoint() *restful.WebService {
 }
 
 func (l *LocationEndpoint) getLocation(request *restful.Request, response *restful.Response) {
-	locationId, err := strconv.Atoi(request.PathParameter("location_id"))
+	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get location: ", err)
 		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
 		return
 	}
 
-	loc, err := l.db.getDBLocation(locationId)
+	loc, err := l.db.getDBLocation(locationID)
 	if err != nil {
-		if err == DBNoRows {
-			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationId))
+		if err == ErrDBNoRows {
+			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationID))
 			return
 		}
 		logger.Error("Get location: ", err)
@@ -99,7 +105,6 @@ func (l *LocationEndpoint) getLocation(request *restful.Request, response *restf
 }
 
 func (l *LocationEndpoint) createLocation(request *restful.Request, response *restful.Response) {
-	// TODO check if location exists in database and if so return an error StatusConflict
 	location := Location{}
 	err := request.ReadEntity(&location)
 	if err != nil {
@@ -113,15 +118,23 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 		s += fmt.Sprintf(",%s", location.CountryCode)
 	}
 
-	result, err, status := l.openWeatherMapAPI.getWeather(map[string]string{"q": s})
+	result, status, err := l.openWeatherMapAPI.getWeather(map[string]string{"q": s})
 	if err != nil {
+		logger.Error("Create location: ", err)
 		response.WriteErrorString(status, "service is unavailable")
+		return
+	}
+
+	if _, err = l.db.getDBLocation(result.ID); err == nil {
+		str := fmt.Sprintf("location '%s' already exist", s)
+		logger.Info("Create location: ", errors.New(str))
+		response.WriteErrorString(http.StatusConflict, str)
 		return
 	}
 
 	location = Location{
 		CityName:    result.Name,
-		LocationId:  result.Id,
+		LocationID:  result.ID,
 		CountryCode: result.Sys.Country,
 		Latitude:    result.Coord.Latitude,
 		Longitude:   result.Coord.Longitude,
@@ -134,6 +147,7 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 		return
 	}
 
+	logger.Info("New location has been created", &location)
 	response.WriteHeaderAndEntity(http.StatusCreated, &location)
 }
 
@@ -144,7 +158,11 @@ func (l *LocationEndpoint) getLocations(request *restful.Request, response *rest
 		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
 		return
 	}
-	//TODO empty list
+
+	if list == nil {
+		response.WriteEntity(make([]Location, 0))
+		return
+	}
 	response.WriteEntity(list)
 }
 
@@ -157,7 +175,7 @@ func (l *LocationEndpoint) deleteLocation(request *restful.Request, response *re
 	}
 
 	if err = l.db.deleteDBLocation(id); err != nil {
-		if err == DBNoRows {
+		if err == ErrDBNoRows {
 			response.WriteErrorString(http.StatusNotFound,
 				fmt.Sprintf("location '%d' does not exist", id))
 			return

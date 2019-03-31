@@ -11,11 +11,11 @@ import (
 )
 
 func TestBuildURI(t *testing.T) {
-	urlOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+	URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
 	tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
 
 	defer func() {
-		os.Setenv("OPEN_WEATHER_MAP_URL", urlOriginal)
+		os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
 		os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
 	}()
 
@@ -24,7 +24,7 @@ func TestBuildURI(t *testing.T) {
 
 	t.Run("check build url", func(t *testing.T) {
 		// Arrange
-		o := NewOpenWeatherAPI(nil)
+		o, _ := NewOpenWeatherAPI(nil)
 
 		// Act
 		uri := o.buildURI("enpoint", map[string]string{
@@ -36,13 +36,33 @@ func TestBuildURI(t *testing.T) {
 	})
 }
 
+func TestNewOpenWeatherAPI(t *testing.T) {
+	t.Run("Invalid configuration for open weather map client", func(t *testing.T) {
+		// Arrange
+		URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+		tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+		defer func() {
+			os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+			os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
+		}()
+
+		os.Setenv("OPEN_WEATHER_MAP_URL", "http://test_url")
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", "")
+		o, err := NewOpenWeatherAPI(nil)
+
+		assert.Nil(t, o)
+		assert.NotNil(t, err)
+	})
+}
+
 func TestParseResponse(t *testing.T) {
 	t.Run("Parse valid response", func(t *testing.T) {
 		// Arrange
-		o := NewOpenWeatherAPI(nil)
+		o, _ := NewOpenWeatherAPI(nil)
 		test := &OpenMapWeather{
 			Name: "City",
-			Id:   123,
+			ID:   123,
 		}
 
 		response := httptest.NewRecorder()
@@ -62,7 +82,7 @@ func TestParseResponse(t *testing.T) {
 
 	t.Run("Parse invalid response", func(t *testing.T) {
 		// Arrange
-		o := NewOpenWeatherAPI(nil)
+		o, _ := NewOpenWeatherAPI(nil)
 		response := httptest.NewRecorder()
 		response.WriteHeader(http.StatusOK)
 		response.WriteString("invalid json")

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -9,20 +10,22 @@ import (
 	"os"
 )
 
+// Description stores open weather map internal data
 type Description struct {
-	Id          int    `json:"id"`
+	ID          int    `json:"id"`
 	Main        string `json:"main"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
 }
 
+// OpenMapWeather stores open weather map internal data
 type OpenMapWeather struct {
 	Coord struct {
 		Latitude  float32 `json:"lat"`
 		Longitude float32 `json:"lon"`
 	} `json:"coord"`
 	Description []struct {
-		Id          int    `json:"id"`
+		ID          int    `json:"id"`
 		Main        string `json:"main"`
 		Description string `json:"description"`
 		Icon        string `json:"icon"`
@@ -43,32 +46,41 @@ type OpenMapWeather struct {
 	Clouds struct {
 		All int `json:"all"`
 	} `json:"clouds"`
-	Dt  string `json:"int"`
+	Dt  int `json:"dt"`
 	Sys struct {
 		Type    int     `json:"type"`
-		Id      int     `json:"id"`
+		ID      int     `json:"id"`
 		Message float32 `json:"message"`
 		Country string  `json:"country"`
 		Sunrise int     `json:"sunrise"`
 		Sunset  int     `json:"sunset"`
-	} `json:sys`
-	Id   int    `json:"id"`
+	} `json:"sys"`
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 	//Cpd  int    `json:"cod"`
 }
 
+// OpenWeatherAPI is a client for open weather map service
 type OpenWeatherAPI struct {
 	client  *http.Client
 	baseURL string
 	token   string
 }
 
-func NewOpenWeatherAPI(client *http.Client) *OpenWeatherAPI {
+// NewOpenWeatherAPI returns new client to open weather map service
+func NewOpenWeatherAPI(client *http.Client) (*OpenWeatherAPI, error) {
+	baseURL := os.Getenv("OPEN_WEATHER_MAP_URL")
+	token := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+	if len(baseURL) == 0 || len(token) == 0 {
+		return nil, errors.New("configuration for open weather map client is not provided")
+	}
+
 	return &OpenWeatherAPI{
 		client:  client,
-		baseURL: os.Getenv("OPEN_WEATHER_MAP_URL"),   //TODO error if does not exist
-		token:   os.Getenv("OPEN_WEATHER_MAP_TOKEN"), //TODO error if does not exist
-	}
+		baseURL: baseURL,
+		token:   token,
+	}, nil
 }
 
 func (o *OpenWeatherAPI) buildURI(endpoint string, params map[string]string) string {
@@ -93,17 +105,20 @@ func (o *OpenWeatherAPI) parseResponse(response *http.Response) (*OpenMapWeather
 	return weather, nil
 }
 
-func (o *OpenWeatherAPI) getWeather(params map[string]string) (*OpenMapWeather, error, int) {
+func (o *OpenWeatherAPI) getWeather(params map[string]string) (*OpenMapWeather, int, error) {
 	uri := o.buildURI("weather", params)
 	resp, err := o.client.Get(uri)
 	if err != nil {
 		if e, ok := err.(net.Error); ok && e.Timeout() {
-			return nil, err, http.StatusGatewayTimeout
+			return nil, http.StatusGatewayTimeout, err
 		}
-		return nil, err, http.StatusBadGateway
+		return nil, http.StatusBadGateway, err
 	}
 	defer resp.Body.Close()
 
 	response, err := o.parseResponse(resp)
-	return response, err, http.StatusBadGateway
+	if err != nil {
+		return response, http.StatusBadGateway, err
+	}
+	return response, http.StatusOK, nil
 }

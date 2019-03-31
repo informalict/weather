@@ -20,6 +20,6 @@ CREATE INDEX weather_location ON weather(location_id);
 
 CREATE TABLE conditions(
 statistic_id INTEGER REFERENCES weather(id) ON DELETE CASCADE,
-type INTEGER NOT NULL,
+type VARCHAR NOT NULL, -- It should be int and we should have dictionary of weather descriptions (It's not a goal of that task)
 PRIMARY KEY(statistic_id, type)
 );

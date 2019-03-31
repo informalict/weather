@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emicklei/go-restful"
-	"github.com/google/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -16,39 +15,24 @@ import (
 	"time"
 )
 
-func TestMain(m *testing.M) {
-	//TODO how to turn of flogger
-	lf, err := os.OpenFile("./testing.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
-	if err != nil {
-		logger.Fatalf("Failed to open log file: %v", lf)
-	}
-	defer lf.Close()
-
-	log := logger.Init("Testing", true, true, lf)
-	defer log.Close()
-
-	code := m.Run()
-	os.Exit(code)
-}
-
 func TestGetLocation(t *testing.T) {
 	// Arrange
 	tests := []struct {
 		name          string
 		expectedError error
-		locationId    string
+		locationID    string
 		db            fakeDatabase
 		HTTPStatus    int
 	}{
 		{
 			name:          "Invalid location_id",
-			locationId:    "invalid",
+			locationID:    "invalid",
 			expectedError: errors.New("location_id must be an integer"),
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{
 			name:       "No connection to database",
-			locationId: "123",
+			locationID: "123",
 			db: fakeDatabase{
 				err: errors.New("can not connect to database"),
 			},
@@ -57,20 +41,20 @@ func TestGetLocation(t *testing.T) {
 		},
 		{
 			name:       "Location not found in database",
-			locationId: "462356",
+			locationID: "462356",
 			db: fakeDatabase{
-				err: DBNoRows,
+				err: ErrDBNoRows,
 			},
 			HTTPStatus:    http.StatusNotFound,
 			expectedError: errors.New("location '462356' not found"),
 		},
 		{
 			name:       "Get valid location",
-			locationId: "123",
+			locationID: "123",
 			db: fakeDatabase{
 				locations: []Location{
 					{
-						LocationId:  123,
+						LocationID:  123,
 						CityName:    "Warsaw",
 						CountryCode: "PL",
 						Longitude:   21.01,
@@ -91,7 +75,7 @@ func TestGetLocation(t *testing.T) {
 			response := restful.NewResponse(httpWriter)
 			response.SetRequestAccepts(restful.MIME_JSON)
 			params := request.PathParameters()
-			params["location_id"] = test.locationId
+			params["location_id"] = test.locationID
 
 			// Act
 			l.getLocation(request, response)
@@ -120,28 +104,28 @@ func TestDeleteLocation(t *testing.T) {
 	tests := []struct {
 		name          string
 		expectedError error
-		locationId    string
+		locationID    string
 		db            fakeDatabase
 		HTTPStatus    int
 	}{
 		{
 			name:          "Invalid location_id",
-			locationId:    "invalid",
+			locationID:    "invalid",
 			expectedError: errors.New("location_id must be an integer"),
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{
 			name:       "No entry in database",
-			locationId: "123",
+			locationID: "123",
 			db: fakeDatabase{
-				err: DBNoRows,
+				err: ErrDBNoRows,
 			},
 			expectedError: errors.New("location '123' does not exist"),
 			HTTPStatus:    http.StatusNotFound,
 		},
 		{
 			name:       "Database error",
-			locationId: "123",
+			locationID: "123",
 			db: fakeDatabase{
 				err: errors.New("database error"),
 			},
@@ -150,7 +134,7 @@ func TestDeleteLocation(t *testing.T) {
 		},
 		{
 			name:       "Location has been deleted",
-			locationId: "123",
+			locationID: "123",
 			HTTPStatus: http.StatusOK,
 			db: fakeDatabase{
 				err: nil,
@@ -168,7 +152,7 @@ func TestDeleteLocation(t *testing.T) {
 			response := restful.NewResponse(httpWriter)
 			response.SetRequestAccepts(restful.MIME_JSON)
 			params := request.PathParameters()
-			params["location_id"] = test.locationId
+			params["location_id"] = test.locationID
 
 			// Act
 			l.deleteLocation(request, response)
@@ -201,19 +185,26 @@ func TestGetLocations(t *testing.T) {
 			HTTPStatus:    http.StatusServiceUnavailable,
 		},
 		{
+			name:       "The empty list",
+			HTTPStatus: http.StatusOK,
+			db: fakeDatabase{
+				locations: nil,
+			},
+		},
+		{
 			name:       "The list with two locations",
 			HTTPStatus: http.StatusOK,
 			db: fakeDatabase{
 				locations: []Location{
 					{
-						LocationId:  123,
+						LocationID:  123,
 						CityName:    "Warsaw",
 						CountryCode: "PL",
 						Longitude:   21.01,
 						Latitude:    52.23,
 					},
 					{
-						LocationId:  2643743,
+						LocationID:  2643743,
 						CityName:    "London",
 						CountryCode: "GB",
 						Longitude:   -0.13,
@@ -245,6 +236,9 @@ func TestGetLocations(t *testing.T) {
 			assert.Nil(t, response.Error())
 			res := response.ResponseWriter.(*httptest.ResponseRecorder)
 			if assert.NotNil(t, res) {
+				if test.db.locations == nil {
+					test.db.locations = make([]Location, 0) //because it should return empty list
+				}
 				lr := make([]Location, 2)
 				err := json.Unmarshal(res.Body.Bytes(), &lr)
 				assert.Nil(t, err)
@@ -295,7 +289,19 @@ func TestCreateLocation(t *testing.T) {
 			HTTPStatus:          http.StatusServiceUnavailable,
 			externalAPIResponse: `{"city_name": "Warsaw", "country_code": "PL"}`,
 			db: fakeDatabase{
-				err: fmt.Errorf("cannot connect to database"),
+				errSave: fmt.Errorf("cannot connect to database"),
+				err:     ErrDBNoRows,
+			},
+		},
+		{
+			name:                "Location already exists in database",
+			cityName:            "Warsaw",
+			countryCode:         "PL",
+			expectedError:       fmt.Errorf("location 'Warsaw,PL' already exist"),
+			HTTPStatus:          http.StatusConflict,
+			externalAPIResponse: `{"city_name": "Warsaw", "country_code": "PL"}`,
+			db: fakeDatabase{
+				err: nil,
 			},
 		},
 		{
@@ -304,9 +310,10 @@ func TestCreateLocation(t *testing.T) {
 			HTTPStatus:          http.StatusCreated,
 			externalAPIResponse: `{ "id": 756135, "name": "Warsaw", "sys": { "country": "PL" } }`,
 			db: fakeDatabase{
+				err: ErrDBNoRows,
 				locations: []Location{
 					{
-						LocationId:  756135,
+						LocationID:  756135,
 						CityName:    "Warsaw",
 						CountryCode: "PL",
 					},
@@ -315,10 +322,13 @@ func TestCreateLocation(t *testing.T) {
 		},
 	}
 
-	urlOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+	URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+	URLToken := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
 	defer func() {
-		os.Setenv("OPEN_WEATHER_MAP_URL", urlOriginal)
+		os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", URLToken)
 	}()
+	os.Setenv("OPEN_WEATHER_MAP_TOKEN", "token")
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -337,7 +347,7 @@ func TestCreateLocation(t *testing.T) {
 			client.Timeout = time.Second
 
 			os.Setenv("OPEN_WEATHER_MAP_URL", server.URL)
-			fakeAPI := NewOpenWeatherAPI(client)
+			fakeAPI, _ := NewOpenWeatherAPI(client)
 			l := NewLocationEndpoint(test.db, fakeAPI)
 
 			var bodyString string
@@ -388,7 +398,7 @@ func TestCreateLocation(t *testing.T) {
 func TestLocationEnpoint(t *testing.T) {
 	t.Run("Check location endpoint settings", func(t *testing.T) {
 		// Arrange
-		externalAPI := NewOpenWeatherAPI(nil)
+		externalAPI, _ := NewOpenWeatherAPI(nil)
 		l := NewLocationEndpoint(nil, externalAPI)
 
 		// Act

@@ -9,38 +9,31 @@ import (
 	"strconv"
 )
 
-type WeatherEndpoint struct {
-	db                databaseProvider
-	openWeatherMapAPI *OpenWeatherAPI
-}
-
-func NewWeatherEndpoint(db databaseProvider, o *OpenWeatherAPI) *WeatherEndpoint {
-	return &WeatherEndpoint{
-		db:                db,
-		openWeatherMapAPI: o,
-	}
-}
-
+// Weather refers to database table 'locations'
 type Weather struct {
 	TableName   struct{} `sql:"weather" json:"-"`
-	Id          int
+	ID          int
 	Temperature float32 `json:"temperature"`
-	LocationId  int
+	LocationID  int
 	TempMin     float32     `json:"temp_min"`
 	TempMax     float32     `json:"temp_max"`
 	Conditions  []Condition `json:"conditions" sql:"-"`
 }
 
+// Condition refers to database table 'conditions'
 type Condition struct {
-	StatisticId int `json:"statistic_id"` // pg:"fk:statistic_id"`
-	Type        int `json:"type"`
+	StatisticID int    `json:"statistic_id"`
+	Type        string `json:"type"`
 }
 
+// Statistics provides overall statistics
 type Statistics struct {
 	Count            int
 	MonthTemperature []MonthTemperatureStatistics
+	DailyCondition   map[string][]string
 }
 
+// MonthTemperatureStatistics contains temperature statistics for each month
 type MonthTemperatureStatistics struct {
 	TableName struct{} `sql:"weather" json:"-"`
 	Min       float32
@@ -49,6 +42,27 @@ type MonthTemperatureStatistics struct {
 	Month     string
 }
 
+// DailyConditionStatistics contains type of weather grouped by type and day
+type DailyConditionStatistics struct {
+	Type string
+	Date string
+}
+
+// WeatherEndpoint stores connection to database and open weather API
+type WeatherEndpoint struct {
+	db                databaseProvider
+	openWeatherMapAPI *OpenWeatherAPI
+}
+
+// NewWeatherEndpoint returns WeatherEndpoint instance
+func NewWeatherEndpoint(db databaseProvider, o *OpenWeatherAPI) *WeatherEndpoint {
+	return &WeatherEndpoint{
+		db:                db,
+		openWeatherMapAPI: o,
+	}
+}
+
+// Endpoint is a webservice for weather statistics
 func (w *WeatherEndpoint) Endpoint() *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/weather").
@@ -81,14 +95,14 @@ func (w *WeatherEndpoint) Endpoint() *restful.WebService {
 }
 
 func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *restful.Response) {
-	locationId, err := strconv.Atoi(request.PathParameter("location_id"))
+	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get statistics: ", err)
 		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
 		return
 	}
 
-	s, err := w.db.getStatistics(locationId)
+	s, err := w.db.getStatistics(locationID)
 	if err != nil {
 		logger.Error("Get statistics: ", err)
 		response.WriteErrorString(http.StatusServiceUnavailable, "service is unavailable")
@@ -98,17 +112,17 @@ func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *rest
 }
 
 func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful.Response) {
-	locationId, err := strconv.Atoi(request.PathParameter("location_id"))
+	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get weather: ", err)
 		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
 		return
 	}
 
-	_, err = w.db.getDBLocation(locationId)
+	_, err = w.db.getDBLocation(locationID)
 	if err != nil {
-		if err == DBNoRows {
-			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationId))
+		if err == ErrDBNoRows {
+			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationID))
 			return
 		}
 
@@ -117,7 +131,7 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 		return
 	}
 
-	result, err, status := w.openWeatherMapAPI.getWeather(map[string]string{"id": strconv.Itoa(locationId)})
+	result, status, err := w.openWeatherMapAPI.getWeather(map[string]string{"id": strconv.Itoa(locationID)})
 	if err != nil {
 		logger.Error("Get weather: ", err)
 		response.WriteErrorString(status, "service is unavailable")
@@ -126,14 +140,14 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 
 	s := Weather{
 		Temperature: result.Main.Temp,
-		LocationId:  locationId,
+		LocationID:  locationID,
 		TempMin:     result.Main.TempMin,
 		TempMax:     result.Main.TempMax,
 	}
 
 	for _, v := range result.Description {
 		s.Conditions = append(s.Conditions, Condition{
-			Type: v.Id,
+			Type: v.Main,
 		})
 	}
 

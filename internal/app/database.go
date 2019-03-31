@@ -2,12 +2,14 @@ package app
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-pg/pg"
 	"os"
 )
 
 var (
-	DBNoRows = errors.New("DATABASE_NO_ROWS")
+	// ErrDBNoRows is our common database error. Using this there is a less dependency with postgres
+	ErrDBNoRows = errors.New("DATABASE_NO_ROWS")
 )
 
 type databaseProvider interface {
@@ -19,58 +21,69 @@ type databaseProvider interface {
 	getStatistics(id int) (Statistics, error)
 }
 
+// Database is config struct for postgres connection
 type Database struct {
 	config *pg.Options
 }
 
-func NewDB() *Database {
+// NewDB creates new config for database connection
+func NewDB() (db *Database, err error) {
+	user := os.Getenv("DB_USER")
+	database := os.Getenv("DB_DATABASE")
+	password := os.Getenv("DB_PASSWORD")
+	address := os.Getenv("DB_ADDRESS")
+
+	if len(user) == 0 || len(database) == 0 || len(address) == 0 {
+		err = fmt.Errorf("database configuration is not provided, user=(%s), address=(%s), databases=(%s)",
+			user, address, database)
+		return
+	}
+
 	return &Database{
 		&pg.Options{
-			User:     os.Getenv("DB_USER"),
-			Database: os.Getenv("DB_DATABASE"),
-			Password: os.Getenv("DB_PASSWORD"),
-			Addr:     os.Getenv("DB_ADDRESS"),
+			User:     user,
+			Database: database,
+			Password: password,
+			Addr:     address,
 		},
-	}
+	}, err
 }
 
-func (d *Database) getDBLocation(id int) (Location, error) {
+func (d *Database) getDBLocation(id int) (location Location, err error) {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	location := Location{}
-	err := db.Model(&location).Where("location_id = ?", id).Select()
+	err = db.Model(&location).Where("location_id = ?", id).Select()
 	if err == pg.ErrNoRows {
-		err = DBNoRows
+		err = ErrDBNoRows
 	}
-	return location, err
+	return
 }
 
-func (d *Database) getDBLocations() ([]Location, error) {
+func (d *Database) getDBLocations() (locations []Location, err error) {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	var locations []Location
-	err := db.Model(&locations).Order("country_code ASC", "city_name ASC").Select()
-
-	return locations, err
+	err = db.Model(&locations).Order("country_code ASC", "city_name ASC").Select()
+	return
 }
 
 func (d *Database) saveDBLocation(location Location) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	return db.Insert(&location)
+	err := db.Insert(&location)
+	return err
 }
 
 func (d *Database) deleteDBLocation(id int) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	location := Location{LocationId: id}
+	location := Location{LocationID: id}
 	v, err := db.Model(&location).Where("location_id = ?", id).Delete()
 	if err == nil && v.RowsAffected() == 0 {
-		return DBNoRows
+		return ErrDBNoRows
 	}
 	return err
 }
@@ -87,7 +100,7 @@ func (d *Database) saveDBWeather(s Weather) error {
 	if err = tx.Insert(&s); err == nil {
 		// Unfortunately there is no possibility to write record with relations
 		for k := range s.Conditions {
-			s.Conditions[k].StatisticId = s.Id
+			s.Conditions[k].StatisticID = s.ID
 		}
 		err = tx.Insert(&s.Conditions)
 	}
@@ -104,13 +117,16 @@ func (d *Database) getStatistics(id int) (Statistics, error) {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
-	s := Statistics{}
 	var err error
+	s := Statistics{}
+
+	// get the number of queries
 	s.Count, err = db.Model(&Weather{}).Where("location_id = ?", id).Count()
 	if err != nil {
-		return s, nil
+		return s, err
 	}
 
+	// get min, max and average temperature for each month
 	err = db.Model(&s.MonthTemperature).
 		ColumnExpr("avg(temperature)").
 		ColumnExpr("min(temp_min)").
@@ -118,20 +134,26 @@ func (d *Database) getStatistics(id int) (Statistics, error) {
 		ColumnExpr("to_char(date, 'YYYY-MM') as month").
 		Where("location_id = ?", id).Group("month").
 		Select()
+	if err != nil {
+		return s, err
+	}
 
+	// get type of the weather and occurrence for each day for that type
+	st, err := db.Prepare("SELECT type,date FROM weather AS w LEFT JOIN conditions AS c ON w.id=c.statistic_id " +
+		"GROUP BY type,date")
+	if err != nil {
+		return s, err
+	}
+
+	var lk []DailyConditionStatistics
+	_, err = st.Query(&lk)
+	if err != nil {
+		return s, err
+	}
+
+	s.DailyCondition = make(map[string][]string)
+	for _, v := range lk {
+		s.DailyCondition[v.Type] = append(s.DailyCondition[v.Type], v.Date)
+	}
 	return s, err
-	//err := db.Model(&s).
-	//	ColumnExpr("statistics.date").
-	//	ColumnExpr("conditions.type").
-	//	Join("JOIN conditions ON statistics.id = conditions.statistic_id").
-	//	Group("type", "date").
-	//	First()
-
-	//err := db.Model(&s).Column("statistic.id", "conditions.statistics_id").Select()
-
-	//Join("inner join companies_customers cc on customer.id = cc.customer_id").Where("cc.company_id = ?", companyID).Select()
-
-	//db.Model(&s).Join()
-	//db.Prepare("select type,date from statistics AS s left join conditions AS c on s.id=c.statistic_id group by type,date"
-	//select * from statistics where conditions @> '{"rain","cloudy"}';
 }

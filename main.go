@@ -3,18 +3,27 @@ package main
 import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
+	"github.com/google/logger"
 	"github.com/mieczyslaw1980/weather/internal/app"
-	"log"
 	"net/http"
 	"time"
 )
 
 func main() {
 	client := &http.Client{
-		Timeout: time.Duration(3 * time.Second),
+		Timeout: time.Duration(4 * time.Second),
 	}
-	externalAPI := app.NewOpenWeatherAPI(client)
-	db := app.NewDB()
+	externalAPI, err := app.NewOpenWeatherAPI(client)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+
+	db, err := app.NewDB()
+	if err != nil {
+		logger.Error(err)
+		return
+	}
 
 	l := app.NewLocationEndpoint(db, externalAPI)
 	w := app.NewWeatherEndpoint(db, externalAPI)
@@ -28,7 +37,7 @@ func main() {
 
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(config))
 
-	log.Printf("Weather service start listening on localhost:8080")
-	err := http.ListenAndServe(":8080", nil)
-	log.Fatal(err)
+	logger.Info("Weather service start listening on localhost:8080")
+	err = http.ListenAndServe(":8080", nil)
+	logger.Fatal(err)
 }
