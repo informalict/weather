@@ -26,9 +26,6 @@ func (f fakeDatabase) getDBLocations() ([]Location, error) {
 }
 
 func (f fakeDatabase) saveDBLocation(location Location) error {
-	if len(f.locations) > 0 {
-		location = f.locations[0]
-	}
 	return f.errSave
 }
 

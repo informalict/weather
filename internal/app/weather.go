@@ -98,7 +98,7 @@ func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *rest
 	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get statistics: ", err)
-		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
+		response.WriteErrorString(http.StatusBadRequest, locationInvalidID)
 		return
 	}
 
@@ -115,14 +115,14 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get weather: ", err)
-		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
+		response.WriteErrorString(http.StatusBadRequest, locationInvalidID)
 		return
 	}
 
 	_, err = w.db.getDBLocation(locationID)
 	if err != nil {
 		if err == ErrDBNoRows {
-			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationID))
+			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
 			return
 		}
 
@@ -134,7 +134,11 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 	result, status, err := w.openWeatherMapAPI.getWeather(map[string]string{"id": strconv.Itoa(locationID)})
 	if err != nil {
 		logger.Error("Get weather: ", err)
-		response.WriteErrorString(status, "service is unavailable")
+		if status == http.StatusNotFound {
+			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
+		} else {
+			response.WriteErrorString(status, "service is unavailable")
+		}
 		return
 	}
 

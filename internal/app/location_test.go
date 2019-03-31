@@ -27,7 +27,7 @@ func TestGetLocation(t *testing.T) {
 		{
 			name:          "Invalid location_id",
 			locationID:    "invalid",
-			expectedError: errors.New("location_id must be an integer"),
+			expectedError: errors.New(locationInvalidID),
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{
@@ -111,7 +111,7 @@ func TestDeleteLocation(t *testing.T) {
 		{
 			name:          "Invalid location_id",
 			locationID:    "invalid",
-			expectedError: errors.New("location_id must be an integer"),
+			expectedError: errors.New(locationInvalidID),
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{
@@ -250,65 +250,97 @@ func TestGetLocations(t *testing.T) {
 
 func TestCreateLocation(t *testing.T) {
 	// Arrange
+	type ExternalAPI struct {
+		response   string
+		HTTPStatus int
+		Timeout    time.Duration
+	}
 	tests := []struct {
-		name                string
-		expectedError       error
-		cityName            string
-		countryCode         string
-		db                  fakeDatabase
-		HTTPStatus          int
-		externalAPIResponse string
-		externalAPITimeout  time.Duration
-		contentType         string
+		name          string
+		expectedError error
+		cityName      string
+		countryCode   string
+		db            fakeDatabase
+		HTTPStatus    int
+		externalAPI   ExternalAPI
+		contentType   string
 	}{
 		{
 			name:          "Bad request",
 			expectedError: fmt.Errorf("invalid data input"),
 			HTTPStatus:    http.StatusBadRequest,
 			contentType:   "application/invalid",
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+			},
 		},
 		{
-			name:               "Open weather API timeout",
-			cityName:           "Warsaw",
-			expectedError:      fmt.Errorf("service is unavailable"),
-			HTTPStatus:         http.StatusGatewayTimeout,
-			externalAPITimeout: time.Second * 2,
+			name:          "Open weather API timeout",
+			cityName:      "Warsaw",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusGatewayTimeout,
+			externalAPI: ExternalAPI{
+				Timeout:    time.Second * 2,
+				HTTPStatus: http.StatusOK,
+			},
 		},
 		{
-			name:                "Invalid format data from open map weather service",
-			cityName:            "Warsaw",
-			expectedError:       fmt.Errorf("service is unavailable"),
-			HTTPStatus:          http.StatusBadGateway,
-			externalAPIResponse: `{invalid json}`,
+			name:          "Invalid format data from open map weather service",
+			cityName:      "Warsaw",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusBadGateway,
+			externalAPI: ExternalAPI{
+				response:   `{invalid json}`,
+				HTTPStatus: http.StatusOK,
+			},
 		},
 		{
-			name:                "Location can not be saved in database",
-			cityName:            "Warsaw",
-			countryCode:         "PL",
-			expectedError:       fmt.Errorf("service is unavailable"),
-			HTTPStatus:          http.StatusServiceUnavailable,
-			externalAPIResponse: `{"city_name": "Warsaw", "country_code": "PL"}`,
+			name:          "Location does not exist in open weather map service",
+			cityName:      "Invalid",
+			expectedError: fmt.Errorf("location 'Invalid' not found"),
+			HTTPStatus:    http.StatusNotFound,
+			externalAPI: ExternalAPI{
+				response:   `{ "cod": "404", "message": "city not found" }`,
+				HTTPStatus: http.StatusNotFound,
+			},
+		},
+		{
+			name:          "Location can not be saved in database",
+			cityName:      "Warsaw",
+			countryCode:   "PL",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusServiceUnavailable,
+			externalAPI: ExternalAPI{
+				response:   `{"city_name": "Warsaw", "country_code": "PL"}`,
+				HTTPStatus: http.StatusOK,
+			},
 			db: fakeDatabase{
 				errSave: fmt.Errorf("cannot connect to database"),
 				err:     ErrDBNoRows,
 			},
 		},
 		{
-			name:                "Location already exists in database",
-			cityName:            "Warsaw",
-			countryCode:         "PL",
-			expectedError:       fmt.Errorf("location 'Warsaw,PL' already exist"),
-			HTTPStatus:          http.StatusConflict,
-			externalAPIResponse: `{"city_name": "Warsaw", "country_code": "PL"}`,
+			name:          "Location already exists in database",
+			cityName:      "Warsaw",
+			countryCode:   "PL",
+			expectedError: fmt.Errorf("location 'Warsaw,PL' already exist"),
+			HTTPStatus:    http.StatusConflict,
+			externalAPI: ExternalAPI{
+				response:   `{"city_name": "Warsaw", "country_code": "PL"}`,
+				HTTPStatus: http.StatusOK,
+			},
 			db: fakeDatabase{
 				err: nil,
 			},
 		},
 		{
-			name:                "Location has been saved",
-			cityName:            "Warsaw",
-			HTTPStatus:          http.StatusCreated,
-			externalAPIResponse: `{ "id": 756135, "name": "Warsaw", "sys": { "country": "PL" } }`,
+			name:       "Location has been saved",
+			cityName:   "Warsaw",
+			HTTPStatus: http.StatusCreated,
+			externalAPI: ExternalAPI{
+				response:   `{ "id": 756135, "name": "Warsaw", "sys": { "country": "PL" } }`,
+				HTTPStatus: http.StatusOK,
+			},
 			db: fakeDatabase{
 				err: ErrDBNoRows,
 				locations: []Location{
@@ -334,12 +366,12 @@ func TestCreateLocation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Arrange
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				if test.externalAPITimeout > 0 {
-					time.Sleep(test.externalAPITimeout) //timeout simulation
+				if test.externalAPI.Timeout > 0 {
+					time.Sleep(test.externalAPI.Timeout) //timeout simulation
 				}
-				rw.WriteHeader(test.HTTPStatus)
+				rw.WriteHeader(test.externalAPI.HTTPStatus)
 				rw.Header()
-				rw.Write([]byte(test.externalAPIResponse))
+				rw.Write([]byte(test.externalAPI.response))
 			}))
 			defer server.Close()
 

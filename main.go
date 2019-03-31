@@ -37,7 +37,7 @@ func main() {
 
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(config))
 
-	logger.Info("Weather service start listening on localhost:8080")
+	logger.Info("Weather service start")
 	err = http.ListenAndServe(":8080", nil)
 	logger.Fatal(err)
 }

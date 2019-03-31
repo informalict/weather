@@ -4,4 +4,4 @@ ENTRYPOINT ["./weather"]
 CMD []
 
 # Copy the binary
-COPY cmd/weather .
+COPY ./cmd/weather .

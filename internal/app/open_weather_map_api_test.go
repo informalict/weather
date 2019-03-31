@@ -56,10 +56,81 @@ func TestNewOpenWeatherAPI(t *testing.T) {
 	})
 }
 
+func TestParseErrorResponse(t *testing.T) {
+	t.Run("Parse valid error response", func(t *testing.T) {
+		// Arrange
+		URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+		tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+		defer func() {
+			os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+			os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
+		}()
+
+		os.Setenv("OPEN_WEATHER_MAP_URL", "http://test_url")
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", "token")
+		o, _ := NewOpenWeatherAPI(nil)
+		require.NotNil(t, o)
+		test := &OpenMapWeatherError{
+			Message: "unknown error from open weather map service",
+		}
+
+		response := httptest.NewRecorder()
+		response.WriteHeader(http.StatusOK)
+		b, err := json.Marshal(test)
+		require.Nil(t, err)
+		response.Write(b)
+
+		// Act
+		err = o.parseErrorResponse(response.Result())
+
+		// Assert
+		require.NotNil(t, err)
+		assert.Equal(t, test.Message, err.Error())
+	})
+
+	t.Run("Parse invalid error response", func(t *testing.T) {
+		// Arrange
+		URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+		tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+		defer func() {
+			os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+			os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
+		}()
+
+		os.Setenv("OPEN_WEATHER_MAP_URL", "http://test_url")
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", "token")
+
+		o, _ := NewOpenWeatherAPI(nil)
+		require.NotNil(t, o)
+		response := httptest.NewRecorder()
+		response.WriteHeader(http.StatusOK)
+		response.WriteString("invalid json")
+
+		// Act
+		err := o.parseErrorResponse(response.Result())
+
+		// Assert
+		assert.NotNil(t, err)
+	})
+}
+
 func TestParseResponse(t *testing.T) {
 	t.Run("Parse valid response", func(t *testing.T) {
 		// Arrange
+		URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+		tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+		defer func() {
+			os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+			os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
+		}()
+
+		os.Setenv("OPEN_WEATHER_MAP_URL", "http://test_url")
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", "token")
 		o, _ := NewOpenWeatherAPI(nil)
+		require.NotNil(t, o)
 		test := &OpenMapWeather{
 			Name: "City",
 			ID:   123,
@@ -82,7 +153,19 @@ func TestParseResponse(t *testing.T) {
 
 	t.Run("Parse invalid response", func(t *testing.T) {
 		// Arrange
+		URLOriginal := os.Getenv("OPEN_WEATHER_MAP_URL")
+		tokenOriginal := os.Getenv("OPEN_WEATHER_MAP_TOKEN")
+
+		defer func() {
+			os.Setenv("OPEN_WEATHER_MAP_URL", URLOriginal)
+			os.Setenv("OPEN_WEATHER_MAP_TOKEN", tokenOriginal)
+		}()
+
+		os.Setenv("OPEN_WEATHER_MAP_URL", "http://test_url")
+		os.Setenv("OPEN_WEATHER_MAP_TOKEN", "token")
+
 		o, _ := NewOpenWeatherAPI(nil)
+		require.NotNil(t, o)
 		response := httptest.NewRecorder()
 		response.WriteHeader(http.StatusOK)
 		response.WriteString("invalid json")

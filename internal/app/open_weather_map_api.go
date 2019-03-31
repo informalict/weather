@@ -67,6 +67,11 @@ type OpenWeatherAPI struct {
 	token   string
 }
 
+// OpenMapWeatherError stores cause of error from open weather map service
+type OpenMapWeatherError struct {
+	Message string `json:"message"`
+}
+
 // NewOpenWeatherAPI returns new client to open weather map service
 func NewOpenWeatherAPI(client *http.Client) (*OpenWeatherAPI, error) {
 	baseURL := os.Getenv("OPEN_WEATHER_MAP_URL")
@@ -91,6 +96,19 @@ func (o *OpenWeatherAPI) buildURI(endpoint string, params map[string]string) str
 	return uri
 }
 
+func (o *OpenWeatherAPI) parseErrorResponse(response *http.Response) error {
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	message := &OpenMapWeatherError{}
+	if err = json.Unmarshal(body, message); err != nil {
+		return fmt.Errorf("%s body=(%s)", err.Error(), body)
+	}
+	return errors.New(message.Message)
+}
+
 func (o *OpenWeatherAPI) parseResponse(response *http.Response) (*OpenMapWeather, error) {
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -98,7 +116,6 @@ func (o *OpenWeatherAPI) parseResponse(response *http.Response) (*OpenMapWeather
 	}
 
 	weather := &OpenMapWeather{}
-	//weather.Weather = make([]struct,2)
 	if err = json.Unmarshal(body, weather); err != nil {
 		return nil, fmt.Errorf("%s body=(%s)", err.Error(), body)
 	}
@@ -116,9 +133,17 @@ func (o *OpenWeatherAPI) getWeather(params map[string]string) (*OpenMapWeather, 
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, http.StatusNotFound, o.parseErrorResponse(resp)
+		}
+		return nil, http.StatusBadGateway, o.parseErrorResponse(resp)
+	}
+
 	response, err := o.parseResponse(resp)
 	if err != nil {
-		return response, http.StatusBadGateway, err
+		return nil, http.StatusBadGateway, err
 	}
 	return response, http.StatusOK, nil
+
 }

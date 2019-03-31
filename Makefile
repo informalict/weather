@@ -23,8 +23,8 @@ linter: # it must be a job in the pipeline
         ./... ;
 
 containers: build
-	docker build -f Dockerfile -t weather .
-	docker build -f Dockerfile.sql -t weather-database .
+	docker build -f deployments/Dockerfile -t weather .
+	docker build -f deployments/Dockerfile.sql -t weather-database .
 
 test:
 	echo "mode: set" > coverage-all.out

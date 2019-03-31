@@ -10,6 +10,11 @@ import (
 	"strconv"
 )
 
+const (
+	locationNotFound  = "location '%s' not found"
+	locationInvalidID = "location_id must be an integer"
+)
+
 // Location refers to database table 'locations'
 type Location struct {
 	CityName    string  `json:"city_name" description:"name of the city"`
@@ -86,14 +91,14 @@ func (l *LocationEndpoint) getLocation(request *restful.Request, response *restf
 	locationID, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Get location: ", err)
-		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
+		response.WriteErrorString(http.StatusBadRequest, locationInvalidID)
 		return
 	}
 
 	loc, err := l.db.getDBLocation(locationID)
 	if err != nil {
 		if err == ErrDBNoRows {
-			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("location '%d' not found", locationID))
+			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
 			return
 		}
 		logger.Error("Get location: ", err)
@@ -121,7 +126,11 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 	result, status, err := l.openWeatherMapAPI.getWeather(map[string]string{"q": s})
 	if err != nil {
 		logger.Error("Create location: ", err)
-		response.WriteErrorString(status, "service is unavailable")
+		if status == http.StatusNotFound {
+			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, s))
+		} else {
+			response.WriteErrorString(status, "service is unavailable")
+		}
 		return
 	}
 
@@ -170,7 +179,7 @@ func (l *LocationEndpoint) deleteLocation(request *restful.Request, response *re
 	id, err := strconv.Atoi(request.PathParameter("location_id"))
 	if err != nil {
 		logger.Error("Delete location: ", err)
-		response.WriteErrorString(http.StatusBadRequest, "location_id must be an integer")
+		response.WriteErrorString(http.StatusBadRequest, locationInvalidID)
 		return
 	}
 

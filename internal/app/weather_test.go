@@ -34,20 +34,28 @@ func TestStatisticsEndpoint(t *testing.T) {
 
 func TestGetWeather(t *testing.T) {
 	// Arrange
+	type ExternalAPI struct {
+		response   string
+		HTTPStatus int
+		Timeout    time.Duration
+	}
+
 	tests := []struct {
-		name                string
-		expectedError       error
-		LocationID          string
-		db                  fakeDatabase
-		HTTPStatus          int
-		externalAPIResponse string
-		externalAPITimeout  time.Duration
+		name          string
+		expectedError error
+		LocationID    string
+		db            fakeDatabase
+		HTTPStatus    int
+		externalAPI   ExternalAPI
 	}{
 		{
 			name:          "Bad request",
 			LocationID:    "abc",
-			expectedError: fmt.Errorf("location_id must be an integer"),
+			expectedError: fmt.Errorf(locationInvalidID),
 			HTTPStatus:    http.StatusBadRequest,
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+			},
 		},
 		{
 			name:          "Location does not exist",
@@ -56,6 +64,9 @@ func TestGetWeather(t *testing.T) {
 			HTTPStatus:    http.StatusNotFound,
 			db: fakeDatabase{
 				err: ErrDBNoRows,
+			},
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
 			},
 		},
 		{
@@ -66,36 +77,71 @@ func TestGetWeather(t *testing.T) {
 			db: fakeDatabase{
 				err: errors.New("database error"),
 			},
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+			},
 		},
 		{
-			name:                "Invalid format data from open map weather service",
-			LocationID:          "123",
-			expectedError:       fmt.Errorf("service is unavailable"),
-			HTTPStatus:          http.StatusBadGateway,
-			externalAPIResponse: `{invalid json}`,
+			name:          "Invalid format data from open map weather service",
+			LocationID:    "123",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusBadGateway,
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+				response:   `{invalid json}`,
+			},
 		},
 		{
-			name:               "Open weather API timeout",
-			LocationID:         "123",
-			expectedError:      fmt.Errorf("service is unavailable"),
-			HTTPStatus:         http.StatusGatewayTimeout,
-			externalAPITimeout: time.Second * 2,
+			name:          "Location does not exist in open weather map service",
+			LocationID:    "1234567890",
+			expectedError: fmt.Errorf("location '1234567890' not found"),
+			HTTPStatus:    http.StatusNotFound,
+			externalAPI: ExternalAPI{
+				response:   `{ "cod": "404", "message": "city not found" }`,
+				HTTPStatus: http.StatusNotFound,
+			},
 		},
 		{
-			name:                "Can not save statistics",
-			LocationID:          "123",
-			expectedError:       fmt.Errorf("service is unavailable"),
-			HTTPStatus:          http.StatusServiceUnavailable,
-			externalAPIResponse: `{ "weather": [ { "main": "Cloudy" } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
+			name:          "Unknown error from open weather map service",
+			LocationID:    "1234567890",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusBadGateway,
+			externalAPI: ExternalAPI{
+				response:   `{ "cod": "500", "message": "unknown" }`,
+				HTTPStatus: http.StatusInternalServerError,
+			},
+		},
+		{
+			name:          "Open weather API timeout",
+			LocationID:    "123",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusGatewayTimeout,
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+				Timeout:    time.Second * 2,
+			},
+		},
+		{
+			name:          "Can not save statistics",
+			LocationID:    "123",
+			expectedError: fmt.Errorf("service is unavailable"),
+			HTTPStatus:    http.StatusServiceUnavailable,
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+				response:   `{ "weather": [ { "main": "Cloudy" } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
+			},
 			db: fakeDatabase{
 				errSave: errors.New("database error"),
 			},
 		},
 		{
-			name:                "Statistics has been saved",
-			LocationID:          "123",
-			HTTPStatus:          http.StatusCreated,
-			externalAPIResponse: `{ "weather": [ { "main": "Rain", "id": 501 } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
+			name:       "Statistics has been saved",
+			LocationID: "123",
+			HTTPStatus: http.StatusCreated,
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+				response:   `{ "weather": [ { "main": "Rain", "id": 501 } ], "main": { "temp": 290.85, "temp_min": 288.71, "temp_max": 293.15 } }`,
+			},
 			db: fakeDatabase{
 				weather: Weather{
 					Conditions: []Condition{
@@ -124,12 +170,12 @@ func TestGetWeather(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// Arrange
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				if test.externalAPITimeout > 0 {
-					time.Sleep(test.externalAPITimeout) //timeout simulation
+				if test.externalAPI.Timeout > 0 {
+					time.Sleep(test.externalAPI.Timeout) //timeout simulation
 				}
-				rw.WriteHeader(test.HTTPStatus)
+				rw.WriteHeader(test.externalAPI.HTTPStatus)
 				rw.Header()
-				rw.Write([]byte(test.externalAPIResponse))
+				rw.Write([]byte(test.externalAPI.response))
 			}))
 			defer server.Close()
 
@@ -186,7 +232,7 @@ func TestGetStatistics(t *testing.T) {
 		{
 			name:          "Bad request",
 			LocationID:    "abc",
-			expectedError: fmt.Errorf("location_id must be an integer"),
+			expectedError: fmt.Errorf(locationInvalidID),
 			HTTPStatus:    http.StatusBadRequest,
 		},
 		{

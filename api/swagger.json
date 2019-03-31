@@ -1,0 +1,352 @@
+{
+ "swagger": "2.0",
+ "paths": {
+  "/locations": {
+   "get": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "locations"
+    ],
+    "summary": "get all locations",
+    "operationId": "getLocations",
+    "responses": {
+     "200": {
+      "description": "OK",
+      "schema": {
+       "type": "array",
+       "items": {
+        "$ref": "#/definitions/app.Location"
+       }
+      }
+     },
+     "503": {
+      "description": "service is unavailable"
+     },
+     "default": {
+      "description": "OK",
+      "schema": {
+       "type": "array",
+       "items": {
+        "$ref": "#/definitions/app.Location"
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "locations"
+    ],
+    "summary": "create a location",
+    "operationId": "createLocation",
+    "parameters": [
+     {
+      "name": "body",
+      "in": "body",
+      "required": true,
+      "schema": {
+       "$ref": "#/definitions/app.Location"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Location"
+      }
+     },
+     "400": {
+      "description": "invalid input data"
+     },
+     "409": {
+      "description": "location already exits"
+     },
+     "502": {
+      "description": "service is unavailable"
+     },
+     "503": {
+      "description": "service is unavailable"
+     },
+     "504": {
+      "description": "service is unavailable"
+     }
+    }
+   }
+  },
+  "/locations/{location_id}": {
+   "get": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "locations"
+    ],
+    "summary": "get a location",
+    "operationId": "getLocation",
+    "parameters": [
+     {
+      "type": "integer",
+      "description": "identifier of the location",
+      "name": "location_id",
+      "in": "path",
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Location"
+      }
+     },
+     "400": {
+      "description": "id location must be an integer"
+     },
+     "404": {
+      "description": "location id not found"
+     },
+     "503": {
+      "description": "service is unavailable"
+     },
+     "default": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Location"
+      }
+     }
+    }
+   },
+   "delete": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "locations"
+    ],
+    "summary": "delete a location",
+    "operationId": "deleteLocation",
+    "parameters": [
+     {
+      "type": "integer",
+      "description": "identifier of the location",
+      "name": "location_id",
+      "in": "path",
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK"
+     },
+     "400": {
+      "description": "id location must be an integer"
+     },
+     "404": {
+      "description": "location id not found"
+     },
+     "503": {
+      "description": "service is unavailable"
+     },
+     "default": {
+      "description": "OK"
+     }
+    }
+   }
+  },
+  "/weather/{location_id}": {
+   "get": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "weather"
+    ],
+    "summary": "get the weather",
+    "operationId": "getWeather",
+    "parameters": [
+     {
+      "type": "integer",
+      "description": "identifier of the location",
+      "name": "location_id",
+      "in": "path",
+      "required": true
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Weather"
+      }
+     },
+     "400": {
+      "description": "id location must be an integer"
+     },
+     "404": {
+      "description": "location id not found"
+     },
+     "503": {
+      "description": "service is unavailable"
+     }
+    }
+   }
+  },
+  "/weather/{location_id}/statistics": {
+   "get": {
+    "consumes": [
+     "application/json"
+    ],
+    "produces": [
+     "application/json"
+    ],
+    "tags": [
+     "weather"
+    ],
+    "summary": "get the weather",
+    "operationId": "getStatistics",
+    "parameters": [
+     {
+      "type": "integer",
+      "description": "identifier of the location",
+      "name": "location_id",
+      "in": "path",
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Weather"
+      }
+     },
+     "400": {
+      "description": "id location must be an integer"
+     },
+     "404": {
+      "description": "location id not found"
+     },
+     "503": {
+      "description": "service is unavailable"
+     },
+     "default": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Weather"
+      }
+     }
+    }
+   }
+  }
+ },
+ "definitions": {
+  "app.Condition": {
+   "required": [
+    "statistic_id",
+    "type"
+   ],
+   "properties": {
+    "statistic_id": {
+     "type": "integer",
+     "format": "int32"
+    },
+    "type": {
+     "type": "string"
+    }
+   }
+  },
+  "app.Location": {
+   "required": [
+    "city_name",
+    "country_code",
+    "location_id",
+    "latitude",
+    "longitude"
+   ],
+   "properties": {
+    "city_name": {
+     "description": "name of the city",
+     "type": "string"
+    },
+    "country_code": {
+     "description": "country code",
+     "type": "string"
+    },
+    "latitude": {
+     "description": "name of the city",
+     "type": "number",
+     "format": "float"
+    },
+    "location_id": {
+     "description": "identifier of the location in open weather map service",
+     "type": "integer",
+     "format": "int32"
+    },
+    "longitude": {
+     "description": "name of the city",
+     "type": "number",
+     "format": "float"
+    }
+   }
+  },
+  "app.Weather": {
+   "required": [
+    "ID",
+    "temperature",
+    "LocationID",
+    "temp_min",
+    "temp_max",
+    "conditions"
+   ],
+   "properties": {
+    "ID": {
+     "type": "integer",
+     "format": "int32"
+    },
+    "LocationID": {
+     "type": "integer",
+     "format": "int32"
+    },
+    "conditions": {
+     "type": "array",
+     "items": {
+      "$ref": "#/definitions/app.Condition"
+     }
+    },
+    "temp_max": {
+     "type": "number",
+     "format": "float"
+    },
+    "temp_min": {
+     "type": "number",
+     "format": "float"
+    },
+    "temperature": {
+     "type": "number",
+     "format": "float"
+    }
+   }
+  }
+ }
+}
