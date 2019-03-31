@@ -12,7 +12,7 @@ var (
 	ErrDBNoRows = errors.New("DATABASE_NO_ROWS")
 )
 
-type databaseProvider interface {
+type databaseWeatherProvider interface {
 	getDBLocation(int) (Location, error)
 	getDBLocations() ([]Location, error)
 	saveDBLocation(Location) error

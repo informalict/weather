@@ -27,12 +27,12 @@ type Location struct {
 
 // LocationEndpoint stores connection to database and open weather API
 type LocationEndpoint struct {
-	db                databaseProvider
+	db                databaseWeatherProvider
 	openWeatherMapAPI *OpenWeatherAPI
 }
 
 // NewLocationEndpoint returns LocationEndpoint instance
-func NewLocationEndpoint(db databaseProvider, o *OpenWeatherAPI) *LocationEndpoint {
+func NewLocationEndpoint(db databaseWeatherProvider, o *OpenWeatherAPI) *LocationEndpoint {
 	return &LocationEndpoint{
 		db:                db,
 		openWeatherMapAPI: o,

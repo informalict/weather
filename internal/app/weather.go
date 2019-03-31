@@ -12,8 +12,8 @@ import (
 // Weather refers to database table 'locations'
 type Weather struct {
 	TableName   struct{} `sql:"weather" json:"-"`
-	ID          int
-	Temperature float32 `json:"temperature"`
+	ID          int      `json:"-"`
+	Temperature float32  `json:"temperature"`
 	LocationID  int
 	TempMin     float32     `json:"temp_min"`
 	TempMax     float32     `json:"temp_max"`
@@ -50,12 +50,12 @@ type DailyConditionStatistics struct {
 
 // WeatherEndpoint stores connection to database and open weather API
 type WeatherEndpoint struct {
-	db                databaseProvider
+	db                databaseWeatherProvider
 	openWeatherMapAPI *OpenWeatherAPI
 }
 
 // NewWeatherEndpoint returns WeatherEndpoint instance
-func NewWeatherEndpoint(db databaseProvider, o *OpenWeatherAPI) *WeatherEndpoint {
+func NewWeatherEndpoint(db databaseWeatherProvider, o *OpenWeatherAPI) *WeatherEndpoint {
 	return &WeatherEndpoint{
 		db:                db,
 		openWeatherMapAPI: o,

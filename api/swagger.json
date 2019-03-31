@@ -70,17 +70,20 @@
      "400": {
       "description": "invalid input data"
      },
+     "404": {
+      "description": "location does not exist"
+     },
      "409": {
-      "description": "location already exits"
+      "description": "location already exist"
      },
      "502": {
-      "description": "service is unavailable"
+      "description": "open weather api error"
      },
      "503": {
       "description": "service is unavailable"
      },
      "504": {
-      "description": "service is unavailable"
+      "description": "open weather api timeout"
      }
     }
    }
@@ -160,7 +163,7 @@
       "description": "id location must be an integer"
      },
      "404": {
-      "description": "location id not found"
+      "description": "location does not exist"
      },
      "503": {
       "description": "service is unavailable"
@@ -194,7 +197,7 @@
      }
     ],
     "responses": {
-     "201": {
+     "200": {
       "description": "OK",
       "schema": {
        "$ref": "#/definitions/app.Weather"
@@ -204,10 +207,22 @@
       "description": "id location must be an integer"
      },
      "404": {
-      "description": "location id not found"
+      "description": "location does not exist"
+     },
+     "502": {
+      "description": "open weather api error"
      },
      "503": {
       "description": "service is unavailable"
+     },
+     "504": {
+      "description": "open weather api timeout"
+     },
+     "default": {
+      "description": "OK",
+      "schema": {
+       "$ref": "#/definitions/app.Weather"
+      }
      }
     }
    }
@@ -245,7 +260,7 @@
       "description": "id location must be an integer"
      },
      "404": {
-      "description": "location id not found"
+      "description": "location does not exist"
      },
      "503": {
       "description": "service is unavailable"
