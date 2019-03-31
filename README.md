@@ -1,18 +1,18 @@
 # Weather service
 ### Purpose
-This service provides API that allows users to maintain favorite locations and generate for them weather statistics suc as:
+This service provides API that allows users to maintain favorite locations and generate for them weather statistics such as:
 * Minimum temperature for each month
 * Maximum temperature for each month
 * Average temperature for each month
 * Number of statistics data
 * Overall weather conditions aggregated by days 
-### Configuration
+### Installation and Configuration
 ###### Download and build images
 * git clone https://github.com/mieczyslaw1980/weather.git
 * cd weather
 * make containers
 ###### Start application
-OPEN_WEATHER_MAP_TOKEN=[YOUR_OPEN_WEATHER_MAP_API_TOKEN] docker-compose deployments/docker-compose.yml up
+OPEN_WEATHER_MAP_TOKEN=<span style="color:red">[YOUR_OPEN_WEATHER_MAP_API_TOKEN]</span> docker-compose deployments/docker-compose.yml up
 ### Endpoints
 1. Locations
 * GET "/locations"
@@ -37,7 +37,7 @@ Save new user's location by city name and country code:
 2. Weather
 * GET "/weather/{id}"
 ```
-Get current weather condition at a moment and save that for later statistis
+Get current weather condition at the moment and save that for later statistis
 ```
 * GET "/weather/{id}/statistics"
 ```
@@ -185,10 +185,10 @@ Response:
    "Month": "2019-03"
   },
   {
-     "Min": 273.71,
-     "Max": 278.15,
-     "Avg": 285.85,
-     "Month": "2018-03"
+   "Min": 273.71,
+   "Max": 278.15,
+   "Avg": 285.85,
+   "Month": "2018-03"
   }
  ],
  "DailyCondition": {

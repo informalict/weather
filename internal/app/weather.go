@@ -104,7 +104,7 @@ func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *rest
 		return
 	}
 
-	if _, err := w.db.getDBLocation(locationID); err != nil {
+	if _, err = w.db.getDBLocation(locationID); err != nil {
 		logger.Error("Get statistics: ", err)
 		if err == ErrDBNoRows {
 			response.WriteErrorString(http.StatusNotFound,
