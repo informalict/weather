@@ -2,7 +2,7 @@ GO = go
 GO_PACKAGES = $(shell $(GO) list ./... | grep -v /vendor/)
 
 build:
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 ${GO} build  \
+	CGO_ENABLED=0 ${GO} build  \
 		-v \
 		-ldflags "-s -w" \
 		-o cmd/weather .
