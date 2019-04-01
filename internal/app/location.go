@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -97,9 +98,9 @@ func (l *LocationEndpoint) getLocation(request *restful.Request, response *restf
 		return
 	}
 
-	loc, err := l.db.getDBLocation(locationID)
+	loc, err := l.db.getLocation(locationID)
 	if err != nil {
-		if err == ErrDBNoRows {
+		if err == sql.ErrNoRows {
 			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
 			return
 		}
@@ -136,7 +137,7 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 		return
 	}
 
-	if _, err = l.db.getDBLocation(result.ID); err == nil {
+	if _, err = l.db.getLocation(result.ID); err == nil {
 		str := fmt.Sprintf("location '%s' already exist", s)
 		logger.Info("Create location: ", errors.New(str))
 		response.WriteErrorString(http.StatusConflict, str)
@@ -151,7 +152,7 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 		Longitude:   result.Coord.Longitude,
 	}
 
-	err = l.db.saveDBLocation(location)
+	err = l.db.saveLocation(location)
 	if err != nil {
 		logger.Error("Create location: ", err)
 		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
@@ -163,7 +164,7 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 }
 
 func (l *LocationEndpoint) getLocations(request *restful.Request, response *restful.Response) {
-	list, err := l.db.getDBLocations()
+	list, err := l.db.getLocations()
 	if err != nil {
 		logger.Error("Get locations: ", err)
 		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
@@ -185,8 +186,8 @@ func (l *LocationEndpoint) deleteLocation(request *restful.Request, response *re
 		return
 	}
 
-	if err = l.db.deleteDBLocation(id); err != nil {
-		if err == ErrDBNoRows {
+	if err = l.db.deleteLocation(id); err != nil {
+		if err == sql.ErrNoRows {
 			response.WriteErrorString(http.StatusNotFound,
 				fmt.Sprintf("location '%d' does not exist", id))
 			return

@@ -15,26 +15,26 @@ type fakeDatabase struct {
 	statistics Statistics
 }
 
-func (f fakeDatabase) getDBLocation(id int) (Location, error) {
+func (f fakeDatabase) getLocation(id int) (Location, error) {
 	if len(f.locations) > 0 {
 		return f.locations[0], f.err
 	}
 	return Location{}, f.err
 }
 
-func (f fakeDatabase) getDBLocations() ([]Location, error) {
+func (f fakeDatabase) getLocations() ([]Location, error) {
 	return f.locations, f.err
 }
 
-func (f fakeDatabase) saveDBLocation(location Location) error {
+func (f fakeDatabase) saveLocation(location Location) error {
 	return f.errSave
 }
 
-func (f fakeDatabase) deleteDBLocation(id int) error {
+func (f fakeDatabase) deleteLocation(id int) error {
 	return f.err
 }
 
-func (f fakeDatabase) saveDBWeather(s Weather) error {
+func (f fakeDatabase) saveWeather(s Weather) error {
 	return f.errSave
 }
 

@@ -1,23 +1,18 @@
 package app
 
 import (
-	"errors"
+	"database/sql"
 	"fmt"
 	"github.com/go-pg/pg"
 	"os"
 )
 
-var (
-	// ErrDBNoRows is our common database error. Using this there is a less dependency with postgres
-	ErrDBNoRows = errors.New("DATABASE_NO_ROWS")
-)
-
 type databaseWeatherProvider interface {
-	getDBLocation(int) (Location, error)
-	getDBLocations() ([]Location, error)
-	saveDBLocation(Location) error
-	deleteDBLocation(int) error
-	saveDBWeather(Weather) error
+	getLocation(int) (Location, error)
+	getLocations() ([]Location, error)
+	saveLocation(Location) error
+	deleteLocation(int) error
+	saveWeather(Weather) error
 	getStatistics(id int) (Statistics, error)
 }
 
@@ -49,18 +44,18 @@ func NewDB() (db *Database, err error) {
 	}, err
 }
 
-func (d *Database) getDBLocation(id int) (location Location, err error) {
+func (d *Database) getLocation(id int) (location Location, err error) {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
 	err = db.Model(&location).Where("location_id = ?", id).Select()
 	if err == pg.ErrNoRows {
-		err = ErrDBNoRows
+		err = sql.ErrNoRows
 	}
 	return
 }
 
-func (d *Database) getDBLocations() (locations []Location, err error) {
+func (d *Database) getLocations() (locations []Location, err error) {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
@@ -68,7 +63,7 @@ func (d *Database) getDBLocations() (locations []Location, err error) {
 	return
 }
 
-func (d *Database) saveDBLocation(location Location) error {
+func (d *Database) saveLocation(location Location) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
@@ -76,19 +71,19 @@ func (d *Database) saveDBLocation(location Location) error {
 	return err
 }
 
-func (d *Database) deleteDBLocation(id int) error {
+func (d *Database) deleteLocation(id int) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 
 	location := Location{LocationID: id}
 	v, err := db.Model(&location).Where("location_id = ?", id).Delete()
 	if err == nil && v.RowsAffected() == 0 {
-		return ErrDBNoRows
+		return sql.ErrNoRows
 	}
 	return err
 }
 
-func (d *Database) saveDBWeather(s Weather) error {
+func (d *Database) saveWeather(s Weather) error {
 	db := pg.Connect(d.config)
 	defer db.Close()
 

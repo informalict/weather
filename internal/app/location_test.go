@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,7 +44,7 @@ func TestGetLocation(t *testing.T) {
 			name:       "Location not found in database",
 			locationID: "462356",
 			db: fakeDatabase{
-				err: ErrDBNoRows,
+				err: sql.ErrNoRows,
 			},
 			HTTPStatus:    http.StatusNotFound,
 			expectedError: errors.New("location '462356' not found"),
@@ -118,7 +119,7 @@ func TestDeleteLocation(t *testing.T) {
 			name:       "No entry in database",
 			locationID: "123",
 			db: fakeDatabase{
-				err: ErrDBNoRows,
+				err: sql.ErrNoRows,
 			},
 			expectedError: errors.New("location '123' does not exist"),
 			HTTPStatus:    http.StatusNotFound,
@@ -316,7 +317,7 @@ func TestCreateLocation(t *testing.T) {
 			},
 			db: fakeDatabase{
 				errSave: fmt.Errorf("cannot connect to database"),
-				err:     ErrDBNoRows,
+				err:     sql.ErrNoRows,
 			},
 		},
 		{
@@ -342,7 +343,7 @@ func TestCreateLocation(t *testing.T) {
 				HTTPStatus: http.StatusOK,
 			},
 			db: fakeDatabase{
-				err: ErrDBNoRows,
+				err: sql.ErrNoRows,
 				locations: []Location{
 					{
 						LocationID:  756135,

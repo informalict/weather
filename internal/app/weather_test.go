@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,7 +64,7 @@ func TestGetWeather(t *testing.T) {
 			expectedError: fmt.Errorf("location '123' not found"),
 			HTTPStatus:    http.StatusNotFound,
 			db: fakeDatabase{
-				err: ErrDBNoRows,
+				err: sql.ErrNoRows,
 			},
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
@@ -241,7 +242,7 @@ func TestGetStatistics(t *testing.T) {
 			expectedError: fmt.Errorf("location '123' does not exist"),
 			HTTPStatus:    http.StatusNotFound,
 			db: fakeDatabase{
-				err: ErrDBNoRows,
+				err: sql.ErrNoRows,
 			},
 		},
 		{

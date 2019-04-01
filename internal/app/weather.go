@@ -1,6 +1,7 @@
 package app
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -104,9 +105,9 @@ func (w *WeatherEndpoint) getStatistics(request *restful.Request, response *rest
 		return
 	}
 
-	if _, err = w.db.getDBLocation(locationID); err != nil {
+	if _, err = w.db.getLocation(locationID); err != nil {
 		logger.Error("Get statistics: ", err)
-		if err == ErrDBNoRows {
+		if err == sql.ErrNoRows {
 			response.WriteErrorString(http.StatusNotFound,
 				fmt.Sprintf("location '%d' does not exist", locationID))
 			return
@@ -132,9 +133,9 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 		return
 	}
 
-	_, err = w.db.getDBLocation(locationID)
+	_, err = w.db.getLocation(locationID)
 	if err != nil {
-		if err == ErrDBNoRows {
+		if err == sql.ErrNoRows {
 			response.WriteErrorString(http.StatusNotFound, fmt.Sprintf(locationNotFound, strconv.Itoa(locationID)))
 			return
 		}
@@ -168,7 +169,7 @@ func (w *WeatherEndpoint) getWeather(request *restful.Request, response *restful
 		})
 	}
 
-	err = w.db.saveDBWeather(s)
+	err = w.db.saveWeather(s)
 	if err != nil {
 		logger.Error("Get weather: ", err)
 		response.WriteErrorString(http.StatusServiceUnavailable, serviceIsUnavailable)
