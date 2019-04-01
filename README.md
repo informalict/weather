@@ -12,7 +12,7 @@ This service provides API that allows users to maintain favorite locations and g
 * cd weather
 * make containers
 ###### Start application
-OPEN_WEATHER_MAP_TOKEN=<span style="color:red">[YOUR_OPEN_WEATHER_MAP_API_TOKEN]</span> docker-compose deployments/docker-compose.yml up
+OPEN_WEATHER_MAP_TOKEN=<span style="color:red">[YOUR_OPEN_WEATHER_MAP_API_TOKEN]</span> docker-compose -f deployments/docker-compose.yml up
 ### Endpoints
 1. Locations
 * GET "/locations"
