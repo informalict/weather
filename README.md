@@ -8,8 +8,8 @@ This service provides API that allows users to maintain favorite locations and g
 * Overall weather conditions aggregated by days 
 ### Installation and Configuration
 ###### Download and build images
-* git clone https://github.com/mieczyslaw1980/weather.git
-* cd weather
+* go get github.com/mieczyslaw1980/weather
+* cd ${GOPATH}/src/github.com/mieczyslaw1980/weather
 * make containers
 ###### Start application
 OPEN_WEATHER_MAP_TOKEN=<span style="color:red">[YOUR_OPEN_WEATHER_MAP_API_TOKEN]</span> docker-compose -f deployments/docker-compose.yml up
