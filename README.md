@@ -54,14 +54,14 @@ GET "/weather/{id}/statistics"
 https://github.com/mieczyslaw1980/weather/blob/master/api/swagger.json
 
 ### Unit tests
-###### Start test
+##### Start test
 ```
 make test
 ```
 
 
 ### Examples
-###### Create new location
+##### Create new location
 * Create location by city name
 
 Request:
@@ -97,7 +97,7 @@ Response:
 }
 ```
 
-###### Delete location
+##### Delete location
 
 Request:
 ```
@@ -109,7 +109,7 @@ Response:
 HTTP Status: 200
 ```
 
-###### Get locations
+##### Get locations
 
 Request:
  ```
@@ -135,7 +135,7 @@ Response:
 ]
 ```
 
-###### Get location
+##### Get location
 
 Request:
 ```
@@ -152,7 +152,7 @@ Response:
 }
 ```
 
-###### Get weather conditions for location
+##### Get weather conditions for location
 Request:
 ```
 curl localhost:8080/weather/2643743
@@ -173,7 +173,7 @@ Response:
 }
 ```
 
-###### Get weather statistics for location
+##### Get weather statistics for location
 Request:
 ```
 curl localhost:8080/weather/2643743/statistics
