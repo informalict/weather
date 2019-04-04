@@ -40,7 +40,7 @@ POST "/locations"
 {"city_name": "London", "country_code": "GB"}
 ``` 
 2. Weather
-* Get current weather condition at the moment and save that for later statistis
+* Get current weather condition at the moment and save that for later statistics
 ```
 GET "/weather/{id}"
 ```
