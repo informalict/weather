@@ -134,8 +134,8 @@ func (d *Database) getStatistics(id int) (Statistics, error) {
 	}
 
 	// get type of the weather and occurrence for each day for that type
-	st, err := db.Prepare("SELECT type,date FROM weather AS w LEFT JOIN conditions AS c ON w.id=c.statistic_id " +
-		"GROUP BY type,date")
+	st, err := db.Prepare("SELECT date,type FROM weather AS w LEFT JOIN conditions AS c ON w.id=c.statistic_id " +
+		"GROUP BY date,type ORDER BY date,type")
 	if err != nil {
 		return s, err
 	}
@@ -148,7 +148,7 @@ func (d *Database) getStatistics(id int) (Statistics, error) {
 
 	s.DailyCondition = make(map[string][]string)
 	for _, v := range lk {
-		s.DailyCondition[v.Type] = append(s.DailyCondition[v.Type], v.Date)
+		s.DailyCondition[v.Date] = append(s.DailyCondition[v.Date], v.Type)
 	}
 	return s, err
 }

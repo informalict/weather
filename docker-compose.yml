@@ -2,18 +2,20 @@ version: '3'
 
 services:
   db:
-    image: weather-database:latest
+    image: postgres
+    environment:
+      POSTGRES_DB: weather
+    volumes:
+      - "./configs/database.sql:/docker-entrypoint-initdb.d/database.sql"
 
   api:
-    image: weather:latest
+    build: .
     dns:
       - 8.8.8.8
     expose:
       - 8080
     ports:
       - 8080:8080
-    links:
-      - db
     environment:
       - DB_USER=postgres
       - DB_PASSWORD=postgres

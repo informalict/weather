@@ -23,7 +23,7 @@ type Weather struct {
 
 // Condition refers to database table 'conditions'
 type Condition struct {
-	StatisticID int    `json:"statistic_id"`
+	StatisticID int    `json:"-"`
 	Type        string `json:"type"`
 }
 

@@ -2,11 +2,11 @@ package app
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/google/logger"
-	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
 )

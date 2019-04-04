@@ -2,12 +2,9 @@ GO = go
 GO_PACKAGES = $(shell $(GO) list ./... | grep -v /vendor/)
 
 build:
-	CGO_ENABLED=0 ${GO} build  \
-		-v \
-		-ldflags "-s -w" \
-		-o cmd/weather .
+	CGO_ENABLED=0 ${GO} build -v -ldflags "-s -w" -o cmd/weather .
 
-linter: # it must be a job in the pipeline
+linter: # it may be a job in the pipeline
 	gometalinter \
 		--skip=vendor \
         --disable-all \
@@ -21,10 +18,6 @@ linter: # it must be a job in the pipeline
         --enable=staticcheck \
         --deadline=300s \
         ./... ;
-
-containers: build
-	docker build -f deployments/Dockerfile -t weather .
-	docker build -f deployments/Dockerfile.sql -t weather-database .
 
 test:
 	echo "mode: set" > coverage-all.out

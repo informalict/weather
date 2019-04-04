@@ -6,42 +6,47 @@ This service provides API that allows users to maintain favorite locations and g
 * Average temperature for each month
 * Number of statistics data
 * Overall weather conditions aggregated by days 
-### Installation and Configuration
-###### Download and build images
-* go get github.com/mieczyslaw1980/weather
-* cd ${GOPATH}/src/github.com/mieczyslaw1980/weather
-* make containers
-###### Start application
-OPEN_WEATHER_MAP_TOKEN=<span style="color:red">[YOUR_OPEN_WEATHER_MAP_API_TOKEN]</span> docker-compose -f deployments/docker-compose.yml up
+### Run application
+```
+go get github.com/mieczyslaw1980/weather
+cd ${GOPATH}/src/github.com/mieczyslaw1980/weather
+export OPEN_WEATHER_MAP_TOKEN=[YOUR API TOKEN]
+docker-compose up
+```
+ 
+
 ### Endpoints
 1. Locations
-* GET "/locations"
+* Get all user's locations
 ```$xslt
-Get all user's locations
+GET "/locations"
 ```
-* GET "/locations/{id}"
+* Get one user's location
 ```
-Get one user's location
+GET "/locations/{id}"
 ```
-* DELETE "/locations/{id}"
+* Delete one user's location
 ```
-Delete one user location
+DELETE "/locations/{id}"
 ```
-* POST "/locations"
+* Save new user's location by city name 
 ```
-Save new user's location by city name: 
-   {"city_name": "London"}
-Save new user's location by city name and country code:
-   {"city_name": "London", "country_code": "GB"}
+POST "/locations"
+{"city_name": "London"}   
 ```
+* Save new user's location by city name and country code
+```
+POST "/locations"
+{"city_name": "London", "country_code": "GB"}
+``` 
 2. Weather
-* GET "/weather/{id}"
+* Get current weather condition at the moment and save that for later statistis
 ```
-Get current weather condition at the moment and save that for later statistis
+GET "/weather/{id}"
 ```
-* GET "/weather/{id}/statistics"
+* Calculate statistics for previous cumulated weather conditions
 ```
-Calculate statistics for previous cumulated weather conditions
+GET "/weather/{id}/statistics"
 ```
 
 ### API Documentation
@@ -57,7 +62,7 @@ make test
 
 ### Examples
 ###### Create new location
-* Create by city name
+* Create location by city name
 
 Request:
 ```
@@ -73,7 +78,7 @@ Response:
  "longitude": 21.01
 }
 ```
-* Create by city name and country code
+* Create location by city name and country code
 
 Request:
 ```
@@ -192,19 +197,21 @@ Response:
   }
  ],
  "DailyCondition": {
-  "Clear": [
-   "2019-03-31"
-   "2019-03-30"
+  "2018-03-30": [
+   "Clear",
   ],
-  "Clouds": [
-   "2019-03-31"
+  "2019-03-04": [
+   "Rain"
   ],
-  "Rain": [
-   "2019-03-31",
-   "2019-03-25",
-   "2019-03-30",
-   "2019-03-04",
-  ]
+  "2019-03-30": [
+   "Clear",
+   "Rain"
+  ],
+  "2019-03-31": [
+   "Clear",
+   "Clouds",
+   "Rain"
+  ],
  }
 }
 ```
