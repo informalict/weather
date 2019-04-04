@@ -3,11 +3,12 @@ package app
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/google/logger"
-	"net/http"
-	"strconv"
 )
 
 // Weather refers to database table 'locations'

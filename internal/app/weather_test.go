@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/emicklei/go-restful"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"os"
+
+	"github.com/emicklei/go-restful"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"strings"
 	"testing"
 	"time"

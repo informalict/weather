@@ -1,11 +1,13 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/google/logger"
 	"github.com/mieczyslaw1980/weather/internal/app"
-	"net/http"
+
 	"time"
 )
 

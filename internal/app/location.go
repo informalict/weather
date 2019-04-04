@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/google/logger"
-	"net/http"
-	"strconv"
 )
 
 const (

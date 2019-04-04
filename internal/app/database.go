@@ -3,8 +3,9 @@ package app
 import (
 	"database/sql"
 	"fmt"
-	"github.com/go-pg/pg"
 	"os"
+
+	"github.com/go-pg/pg"
 )
 
 type databaseWeatherProvider interface {
