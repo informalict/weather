@@ -8,7 +8,7 @@ This service provides API that allows users to maintain favorite locations and g
 * Overall weather conditions aggregated by days 
 ### Run application
 ```
-go get github.com/mieczyslaw1980/weather
+go get -u github.com/mieczyslaw1980/weather
 cd ${GOPATH}/src/github.com/mieczyslaw1980/weather
 export OPEN_WEATHER_MAP_TOKEN=[YOUR API TOKEN]
 docker-compose up

@@ -269,9 +269,19 @@ func TestCreateLocation(t *testing.T) {
 	}{
 		{
 			name:          "Bad request",
+			cityName:      "",
 			expectedError: fmt.Errorf("invalid data input"),
 			HTTPStatus:    http.StatusBadRequest,
 			contentType:   "application/invalid",
+			externalAPI: ExternalAPI{
+				HTTPStatus: http.StatusOK,
+			},
+		},
+		{
+			name:          "Bad request",
+			cityName:      "",
+			expectedError: fmt.Errorf("input data field 'city_name' is required"),
+			HTTPStatus:    http.StatusBadRequest,
 			externalAPI: ExternalAPI{
 				HTTPStatus: http.StatusOK,
 			},
@@ -387,8 +397,10 @@ func TestCreateLocation(t *testing.T) {
 			var bodyString string
 			if len(test.countryCode) > 0 {
 				bodyString = fmt.Sprintf(`{"city_name": "%s", "country_code": "%s"}`, test.cityName, test.countryCode)
-			} else {
+			} else if len(test.cityName) > 0 {
 				bodyString = fmt.Sprintf(`{"city_name": "%s"}`, test.cityName)
+			} else {
+				bodyString = `{"invalid": "Warsaw"}`
 			}
 
 			bodyReader := strings.NewReader(bodyString)

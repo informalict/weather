@@ -19,6 +19,10 @@ linter: # it may be a job in the pipeline
         --deadline=300s \
         ./... ;
 
+clean:
+	docker-compose down
+	docker rmi weather_api
+
 test:
 	echo "mode: set" > coverage-all.out
 	$(foreach pkg,$(GO_PACKAGES), \

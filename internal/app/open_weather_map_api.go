@@ -25,39 +25,18 @@ type OpenMapWeather struct {
 		Longitude float32 `json:"lon"`
 	} `json:"coord"`
 	Description []struct {
-		ID          int    `json:"id"`
 		Main        string `json:"main"`
-		Description string `json:"description"`
-		Icon        string `json:"icon"`
 	} `json:"weather"`
-	Base string `json:"base"`
 	Main struct {
 		Temp     float32 `json:"temp"`
-		Pressure int     `json:"pressure"`
-		Humidity int     `json:"humidity"`
 		TempMin  float32 `json:"temp_min"`
 		TempMax  float32 `json:"temp_max"`
 	} `json:"main"`
-	Visibility int `json:"int"`
-	Wind       struct {
-		Speed float32 `json:"speed"`
-		Deg   int     `json:"deg"`
-	} `json:"wind"`
-	Clouds struct {
-		All int `json:"all"`
-	} `json:"clouds"`
-	Dt  int `json:"dt"`
 	Sys struct {
-		Type    int     `json:"type"`
-		ID      int     `json:"id"`
-		Message float32 `json:"message"`
 		Country string  `json:"country"`
-		Sunrise int     `json:"sunrise"`
-		Sunset  int     `json:"sunset"`
 	} `json:"sys"`
 	ID   int    `json:"id"`
 	Name string `json:"name"`
-	//Cpd  int    `json:"cod"`
 }
 
 // OpenWeatherAPI is a client for open weather map service

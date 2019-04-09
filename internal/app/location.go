@@ -114,24 +114,19 @@ func (l *LocationEndpoint) getLocation(request *restful.Request, response *restf
 }
 
 func (l *LocationEndpoint) createLocation(request *restful.Request, response *restful.Response) {
-	location := Location{}
-	err := request.ReadEntity(&location)
+
+	search, err := l.validateLocation(request)
 	if err != nil {
 		logger.Error("Create location: ", err)
-		response.WriteErrorString(http.StatusBadRequest, "invalid data input")
+		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 
-	s := location.CityName
-	if len(location.CountryCode) > 0 {
-		s += fmt.Sprintf(",%s", location.CountryCode)
-	}
-
-	result, status, err := l.openWeatherMapAPI.getWeather(map[string]string{"q": s})
+	result, status, err := l.openWeatherMapAPI.getWeather(map[string]string{"q": search})
 	if err != nil {
 		logger.Error("Create location: ", err)
 		if status == http.StatusNotFound {
-			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, s))
+			response.WriteErrorString(status, fmt.Sprintf(locationNotFound, search))
 		} else {
 			response.WriteErrorString(status, serviceIsUnavailable)
 		}
@@ -139,13 +134,13 @@ func (l *LocationEndpoint) createLocation(request *restful.Request, response *re
 	}
 
 	if _, err = l.db.getLocation(result.ID); err == nil {
-		str := fmt.Sprintf("location '%s' already exist", s)
+		str := fmt.Sprintf("location '%s' already exist", search)
 		logger.Info("Create location: ", errors.New(str))
 		response.WriteErrorString(http.StatusConflict, str)
 		return
 	}
 
-	location = Location{
+	location := Location{
 		CityName:    result.Name,
 		LocationID:  result.ID,
 		CountryCode: result.Sys.Country,
@@ -201,4 +196,22 @@ func (l *LocationEndpoint) deleteLocation(request *restful.Request, response *re
 	}
 
 	response.WriteEntity(nil)
+}
+
+func (l *LocationEndpoint) validateLocation(request *restful.Request) (string, error) {
+	location := Location{}
+	err := request.ReadEntity(&location)
+	if err != nil {
+		return "", errors.New("invalid data input")
+	}
+
+	if len(location.CityName) == 0 {
+		return "", errors.New("input data field 'city_name' is required")
+	}
+
+	s := location.CityName
+	if len(location.CountryCode) > 0 {
+		s += fmt.Sprintf(",%s", location.CountryCode)
+	}
+	return s, nil
 }

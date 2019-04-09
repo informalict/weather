@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -12,6 +13,15 @@ import (
 )
 
 func main() {
+	file, err := os.OpenFile("/tmp/weather.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0660)
+	if err != nil {
+		logger.Fatalf("Failed to open log file: %v", err)
+	}
+	defer file.Close()
+
+	logFile := logger.Init("Logger", true, false, file)
+	defer logFile.Close()
+
 	client := &http.Client{
 		Timeout: time.Duration(10 * time.Second),
 	}
