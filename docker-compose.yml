@@ -12,8 +12,6 @@ services:
     build: .
     dns:
       - 8.8.8.8
-    expose:
-      - 8080
     ports:
       - 8080:8080
     environment:
