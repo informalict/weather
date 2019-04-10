@@ -5,8 +5,8 @@ services:
     image: postgres:11.2
     environment:
       POSTGRES_DB: weather
-      POSTGRES_USER=postgres
-      POSTGRES_PASSWORD=postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
       - "./configs/database.sql:/docker-entrypoint-initdb.d/database.sql"
 
